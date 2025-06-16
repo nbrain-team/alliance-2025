@@ -12,7 +12,7 @@ const KnowledgeBase = () => {
     const [url, setUrl] = useState('');
 
     // Dummy data for the library
-    const [documents, setDocuments] = useState([
+    const [documents, _setDocuments] = useState([
         { id: 1, name: 'Q4_2023_Earnings_Call.pdf', type: 'Brand Content', status: 'Ready' },
         { id: 2, name: 'Competitor_Analysis_Report.docx', type: 'Industry Data', status: 'Ready' },
         { id: 3, name: 'https://www.some-industry-report.com', type: 'Industry Data', status: 'Processing' },

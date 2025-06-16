@@ -1,4 +1,4 @@
-import { Box, Flex, Text, ScrollArea, Heading } from '@radix-ui/themes';
+import { Box, Flex, Text, ScrollArea } from '@radix-ui/themes';
 import { CommandCenter } from '../components/CommandCenter';
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
