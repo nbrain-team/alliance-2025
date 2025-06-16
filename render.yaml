@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: adtv-backend
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: 'pip install -r backend/requirements.txt'
+    startCommand: 'cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT'
+    envVars:
+      - key: PINECONE_API_KEY
+        fromSecret: true
+      - key: PINECONE_ENVIRONMENT
+        fromSecret: true
+      - key: GEMINI_API_KEY
+        fromSecret: true
+      - key: PYTHON_VERSION
+        value: 3.11.0
+
+  - type: web
+    name: adtv-frontend
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: 'cd frontend && npm install && npm run build'
+    staticPublishPath: 'frontend/dist'
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html 

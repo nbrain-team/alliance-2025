@@ -21,4 +21,5 @@ html5lib
 beautifulsoup4
 nest-asyncio
 python-multipart
-aiofiles 
+aiofiles
+langchain-google-genai 

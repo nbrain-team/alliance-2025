@@ -1,12 +1,11 @@
 import os
-from langchain_google_vertexai import VertexAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 class LLMHandler:
     def __init__(self):
-        self.llm = VertexAI(
-            model_name="gemini-pro",
-            project=os.environ.get("GOOGLE_CLOUD_PROJECT_ID"),
-            credentials=None # Uses Application Default Credentials
+        self.llm = ChatGoogleGenerativeAI(
+            model="gemini-pro",
+            google_api_key=os.environ["GEMINI_API_KEY"]
         )
 
     def generate_answer(self, query: str, context: list[str]) -> str:
