@@ -3,7 +3,7 @@ import { CommandCenter } from '../components/CommandCenter';
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import React from 'react';
 
 // Define the structure for a message
 interface Message {
@@ -11,11 +11,14 @@ interface Message {
   sender: 'user' | 'ai';
 }
 
+interface HomePageProps {
+    messages: Message[];
+    setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
+}
+
 // --- Main App Component ---
-function HomePage() {
-  const [messages, setMessages] = useState<Message[]>([]);
+function HomePage({ messages, setMessages }: HomePageProps) {
   const [input, setInput] = useState('');
-  const navigate = useNavigate();
 
   // --- Backend Mutations ---
   const queryMutation = useMutation({
@@ -50,69 +53,37 @@ function HomePage() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value);
   };
-  
-  const Sidebar = ({ onNavigate }: { onNavigate: (path: string) => void }) => {
-    return (
-        <Flex 
-            direction="column" 
-            align="center" 
-            gap="4"
-            style={{ 
-                width: 'var(--sidebar-width)', 
-                height: '100vh', 
-                padding: '1.5rem 0',
-                backgroundColor: 'var(--sidebar-bg)',
-                borderRight: '1px solid var(--border)',
-                boxShadow: 'var(--shadow)'
-            }}
-        >
-            <img src="/new-icons/logo.png" alt="ADTV Logo" style={{ width: '60px', height: '60px', marginBottom: '1rem' }} />
-            
-            <button className="sidebar-icon" title="New Chat" onClick={() => setMessages([])}>
-                <img src="/new-icons/1.png" alt="New Chat" />
-                <span>New Chat</span>
-            </button>
-            <button className="sidebar-icon" title="Knowledge Base" onClick={() => onNavigate('/knowledge-base')}>
-                <img src="/new-icons/2.png" alt="Upload" />
-                <span>Upload</span>
-            </button>
-        </Flex>
-    );
-  };
-
 
   return (
     <>
         <style>{STYLES}</style>
-        <Flex style={{ height: '100vh', width: '100vw', overflow: 'hidden', background: 'var(--bg)' }}>
-        
-        <Sidebar onNavigate={navigate} />
-        
         <Flex direction="column" style={{ flexGrow: 1, height: '100vh' }}>
             {messages.length === 0 ? (
                  <div className="initial-view-container">
                     <div className="initial-text-content">
-                        <h1>Welcome to ADTV</h1>
+                        <h1>American Dream TV AI Console</h1>
                         <p>Ask questions about your ads, analytics, or performance. Start by typing your query below.</p>
                     </div>
                 </div>
             ) : (
-                <ScrollArea style={{ flexGrow: 1, padding: '1.5rem', overflowY: 'auto' }}>
-                    <Flex direction="column" gap="4" className="chat-history">
-                        {messages.map((msg, index) => (
-                        <Box key={index} className={`chat-bubble ${msg.sender === 'user' ? 'user-bubble' : 'assistant-bubble'}`}>
-                            {msg.text === 'Thinking...' ? (
-                                <div className="loading-dots"><span>.</span><span>.</span><span>.</span></div>
-                            ) : (
-                                <Text>{msg.text}</Text>
-                            )}
-                        </Box>
+                <ScrollArea type="auto" scrollbars="vertical" style={{ flexGrow: 1 }}>
+                    <Box style={{ padding: '1.5rem', maxWidth: '800px', margin: '0 auto' }}>
+                        {messages.map((message, index) => (
+                            <div key={index} className={`message ${message.sender}`}>
+                                <Text>{message.text}</Text>
+                            </div>
                         ))}
-                    </Flex>
+                    </Box>
                 </ScrollArea>
             )}
-
-            <Box style={{ padding: '0 1.5rem 1rem 1.5rem', borderTop: '1px solid var(--border)'}}>
+            
+            <Box style={{ 
+                padding: '1rem 1.5rem', 
+                borderTop: '1px solid var(--border)',
+                backgroundColor: 'var(--card-bg)',
+                position: 'sticky',
+                bottom: 0,
+             }}>
                  <CommandCenter 
                     input={input}
                     onInputChange={handleInputChange}
@@ -120,7 +91,6 @@ function HomePage() {
                     isLoading={queryMutation.isPending}
                 />
             </Box>
-        </Flex>
         </Flex>
     </>
   );

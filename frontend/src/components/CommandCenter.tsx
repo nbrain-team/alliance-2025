@@ -154,7 +154,7 @@ export const CommandCenter = ({ input, onInputChange, onSend, isLoading }: Comma
                 }}
                 className="command-center-icon-button"
             >
-                <PaperPlaneIcon width="18" height="18" />
+                <img src="/new-icons/13.png" alt="Send" style={{width:'18px',height:'18px',objectFit:'contain'}} />
             </IconButton>
         </div>
     );

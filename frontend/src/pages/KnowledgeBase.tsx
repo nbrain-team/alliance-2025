@@ -1,12 +1,10 @@
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import axios from 'axios';
-import { Flex, Heading, Button, Checkbox, IconButton } from '@radix-ui/themes';
-import { useNavigate } from 'react-router-dom';
+import { Checkbox, IconButton } from '@radix-ui/themes';
 import { TrashIcon } from '@radix-ui/react-icons';
 
 const KnowledgeBase = () => {
-    const navigate = useNavigate();
     const [file, setFile] = useState<File | null>(null);
     const [docType, setDocType] = useState('brand_content');
     const [url, setUrl] = useState('');
@@ -61,23 +59,31 @@ const KnowledgeBase = () => {
     };
 
     return (
-        <Flex direction="column" style={{ minHeight: '100vh', background: 'var(--bg)'}}>
+        <div style={{ height: '100vh', overflowY: 'auto' }}>
             <style>{STYLES}</style>
             
             {/* --- Header --- */}
-            <Flex
-                align="center"
-                justify="between"
+            <div
                 style={{
                     padding: '1rem 1.5rem',
                     borderBottom: '1px solid var(--border)',
                     backgroundColor: 'var(--header-bg)',
                     boxShadow: 'var(--shadow)',
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 10,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
                 }}
             >
-                <Heading size="6" style={{ color: 'var(--primary)' }}>Knowledge Base</Heading>
-                <Button variant="soft" onClick={() => navigate('/')}>Back to Chat</Button>
-            </Flex>
+                <h1 style={{ 
+                    fontSize: '1.75rem', 
+                    color: 'var(--primary)',
+                    fontWeight: 600,
+                    margin: 0
+                }}>Knowledge Base</h1>
+            </div>
 
             {/* --- Main Content --- */}
             <div className="knowledge-base-container">
@@ -161,7 +167,7 @@ const KnowledgeBase = () => {
                     </div>
                 </section>
             </div>
-        </Flex>
+        </div>
     );
 };
 
