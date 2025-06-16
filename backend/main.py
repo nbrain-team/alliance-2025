@@ -29,14 +29,13 @@ async def upload_document(file: UploadFile = File(...)):
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file name provided.")
 
-    file_extension = file.filename.split(".")[-1]
     temp_file_path = f"temp_{file.filename}"
 
     try:
         with open(temp_file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        chunks = process_file(temp_file_path, file_extension)
+        chunks = process_file(temp_file_path, file.content_type)
 
         pinecone_manager = PineconeManager()
         metadata = {"source": file.filename}
