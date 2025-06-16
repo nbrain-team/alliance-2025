@@ -6,11 +6,10 @@ interface ChatInputProps {
   value: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSend: () => void;
-  onUpload: () => void;
   isLoading: boolean;
 }
 
-export const ChatInput = ({ value, onChange, onSend, onUpload, isLoading }: ChatInputProps) => {
+export const ChatInput = ({ value, onChange, onSend, isLoading }: ChatInputProps) => {
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter' && !isLoading) {
@@ -20,14 +19,6 @@ export const ChatInput = ({ value, onChange, onSend, onUpload, isLoading }: Chat
 
   return (
     <Flex gap="3" align="center">
-      <IconButton 
-        variant="ghost" 
-        onClick={onUpload} 
-        disabled={isLoading}
-        title="Upload File"
-      >
-        <PlusIcon width="24" height="24" />
-      </IconButton>
       <TextField.Root
         placeholder="Ask a follow up, or start a new search..."
         style={{ flexGrow: 1 }}
