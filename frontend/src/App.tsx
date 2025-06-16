@@ -1,6 +1,6 @@
-import { Box, Grid, Card, Flex, Text } from '@radix-ui/themes';
+import { Box, Grid, Card, Flex, Text, Button } from '@radix-ui/themes';
 import { ChatInput } from './components/ChatInput';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import axios from 'axios';
 
@@ -12,6 +12,7 @@ interface Message {
 function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const mutation = useMutation({
     mutationFn: (newQuery: string) => {
@@ -28,6 +29,36 @@ function App() {
     }
   });
 
+  const uploadMutation = useMutation({
+    mutationFn: (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      return axios.post('http://localhost:8000/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+    },
+    onSuccess: () => {
+      // You can add a success message here, e.g., using a toast notification
+      console.log("File uploaded successfully");
+    },
+    onError: (error) => {
+      console.error("Error uploading file:", error);
+    }
+  });
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      uploadMutation.mutate(file);
+    }
+  };
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
   const handleSubmit = () => {
     if (!input.trim()) return;
 
@@ -43,6 +74,16 @@ function App() {
       <Box style={{ backgroundColor: '#f7f7f7', borderRight: '1px solid #e0e0e0' }}>
         <Flex direction="column" p="4">
           <Text size="5" weight="bold">ADTV AI</Text>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            style={{ display: 'none' }}
+            accept=".pdf,.docx,.txt"
+          />
+          <Button onClick={handleUploadClick} mt="4">
+            Upload File
+          </Button>
           {/* Sidebar content will go here */}
         </Flex>
       </Box>
