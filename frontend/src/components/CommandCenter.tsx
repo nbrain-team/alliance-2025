@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { IconButton, TextField } from '@radix-ui/themes';
+import { PaperPlaneIcon } from '@radix-ui/react-icons';
 
 interface CommandCenterProps {
   input: string;
@@ -153,7 +154,7 @@ export const CommandCenter = ({ input, onInputChange, onSend, isLoading }: Comma
                 }}
                 className="command-center-icon-button"
             >
-                <img src="/new-icons/13.png" alt="Send" style={{width:'18px',height:'18px',objectFit:'contain'}} />
+                <PaperPlaneIcon width="18" height="18" />
             </IconButton>
         </div>
     );
