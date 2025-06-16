@@ -1,4 +1,5 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, Form
+from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -15,6 +16,19 @@ app = FastAPI(
     title="ADTV RAG API",
     description="API for ADTV's Retrieval-Augmented Generation platform.",
     version="0.1.0"
+)
+
+# --- CORS Configuration ---
+# This allows the frontend to communicate with the backend.
+# In a production environment, you would want to restrict this to your frontend's domain.
+origins = ["*"] # Allow all origins for now
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 @app.get("/")
