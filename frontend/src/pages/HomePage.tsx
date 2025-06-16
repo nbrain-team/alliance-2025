@@ -1,6 +1,6 @@
 import { Box, Flex, Text, ScrollArea } from '@radix-ui/themes';
 import { ChatInput } from '../components/ChatInput';
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -15,7 +15,6 @@ interface Message {
 function HomePage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
   // --- Backend Mutations ---
@@ -33,22 +32,6 @@ function HomePage() {
     }
   });
 
-  const uploadMutation = useMutation({
-    mutationFn: (file: File) => {
-      const formData = new FormData();
-      formData.append('file', file);
-      return axios.post('http://localhost:8000/upload', formData);
-    },
-    onSuccess: () => {
-      setMessages(prev => [...prev, { text: "File uploaded successfully!", sender: 'ai' }]);
-    },
-    onError: (error: any) => {
-      const errorMessage = error.response?.data?.detail || "Sorry, something went wrong during upload.";
-      setMessages(prev => [...prev, { text: errorMessage, sender: 'ai' }]);
-    }
-  });
-
-
   // --- Event Handlers ---
   const handleSend = () => {
     if (input.trim()) {
@@ -58,26 +41,11 @@ function HomePage() {
     }
   };
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      uploadMutation.mutate(file);
-    }
-  };
-
-
   return (
     <Flex style={{ height: '100vh', width: '100vw', overflow: 'hidden' }}>
       <style>{STYLES}</style>
       {/* --- Sidebar --- */}
       <Sidebar onNavigate={navigate} />
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileChange}
-        style={{ display: 'none' }}
-        accept=".pdf,.docx,.txt,.mp4,.mov,.avi"
-      />
 
       {/* --- Main Content --- */}
       <Flex direction="column" style={{ flexGrow: 1, height: '100vh' }}>
@@ -105,7 +73,7 @@ function HomePage() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onSend={handleSend}
-            isLoading={queryMutation.isPending || uploadMutation.isPending}
+            isLoading={queryMutation.isPending}
           />
         </Box>
       </Flex>
