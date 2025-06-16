@@ -20,4 +20,6 @@ lxml
 html5lib
 beautifulsoup4
 americandream-tv
-nest-asyncio 
+nest-asyncio
+python-multipart
+aiofiles 
