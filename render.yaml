@@ -1,7 +1,6 @@
 services:
   - type: static_site
     name: adtv-frontend
-    env: node
     region: oregon
     plan: free
     buildCommand: 'cd frontend && npm install && npm run build'
