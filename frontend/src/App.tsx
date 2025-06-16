@@ -1,34 +1,96 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { Box, Grid, Card, Flex, Text } from '@radix-ui/themes';
+import { ChatInput } from './components/ChatInput';
+import { useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
+import axios from 'axios';
+
+interface Message {
+  text: string;
+  sender: 'user' | 'ai';
+}
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState('');
+
+  const mutation = useMutation({
+    mutationFn: (newQuery: string) => {
+      const formData = new FormData();
+      formData.append('query', newQuery);
+      return axios.post('http://localhost:8000/query', formData);
+    },
+    onSuccess: (response) => {
+      setMessages((prev) => [...prev, { text: response.data.answer, sender: 'ai' }]);
+    },
+    onError: (error) => {
+      console.error("Error querying backend:", error);
+      setMessages((prev) => [...prev, { text: "Sorry, something went wrong.", sender: 'ai' }]);
+    }
+  });
+
+  const handleSubmit = () => {
+    if (!input.trim()) return;
+
+    const newQuery = input;
+    setMessages((prev) => [...prev, { text: newQuery, sender: 'user' }]);
+    setInput('');
+    mutation.mutate(newQuery);
+  };
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+    <Grid columns="300px 1fr" style={{ height: '100vh' }}>
+      {/* Sidebar */}
+      <Box style={{ backgroundColor: '#f7f7f7', borderRight: '1px solid #e0e0e0' }}>
+        <Flex direction="column" p="4">
+          <Text size="5" weight="bold">ADTV AI</Text>
+          {/* Sidebar content will go here */}
+        </Flex>
+      </Box>
+
+      {/* Main Content */}
+      <Box p="4">
+        <Card style={{ height: '100%' }}>
+          <Flex direction="column" justify="between" style={{ height: '100%' }}>
+            {/* Chat messages will go here */}
+            <Box style={{ flexGrow: 1, overflowY: 'auto' }}>
+              {messages.map((msg, index) => (
+                <Flex key={index} direction="column" my="2">
+                  <Card style={{ 
+                    maxWidth: '70%', 
+                    alignSelf: msg.sender === 'user' ? 'flex-end' : 'flex-start',
+                    backgroundColor: msg.sender === 'user' ? '#007aff' : '#f0f0f0',
+                    color: msg.sender === 'user' ? 'white' : 'black'
+                  }}>
+                    <Text>{msg.text}</Text>
+                  </Card>
+                </Flex>
+              ))}
+              {mutation.isPending && (
+                <Flex direction="column" my="2">
+                  <Card style={{ 
+                    maxWidth: '70%', 
+                    alignSelf: 'flex-start',
+                    backgroundColor: '#f0f0f0',
+                    color: 'black'
+                  }}>
+                    <Text>Thinking...</Text>
+                  </Card>
+                </Flex>
+              )}
+            </Box>
+            
+            {/* Input area */}
+            <Box>
+              <ChatInput 
+                input={input}
+                setInput={setInput}
+                handleSubmit={handleSubmit}
+              />
+            </Box>
+          </Flex>
+        </Card>
+      </Box>
+    </Grid>
   )
 }
 
