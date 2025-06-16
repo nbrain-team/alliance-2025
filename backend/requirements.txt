@@ -22,4 +22,4 @@ python-multipart
 aiofiles
 langchain-google-genai
 openai
-moviepy 
+moviepy==1.0.3 
