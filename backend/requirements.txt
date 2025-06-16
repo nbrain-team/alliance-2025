@@ -6,8 +6,8 @@ google-auth-httplib2
 google-auth-oauthlib
 pinecone-client
 openai
-unstructured.io
-pymupdf
+unstructured
+pypdf
 python-docx
 langchain
 langchain-community
@@ -19,7 +19,6 @@ pandas
 lxml
 html5lib
 beautifulsoup4
-americandream-tv
 nest-asyncio
 python-multipart
 aiofiles 

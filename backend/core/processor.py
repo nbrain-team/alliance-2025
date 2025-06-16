@@ -2,8 +2,8 @@
 # It will include functions to handle different file types (PDF, DOCX, TXT, etc.),
 # extract text, and chunk it for further processing.
 
-import fitz  # PyMuPDF
 import docx
+from pypdf import PdfReader
 from .chunking import chunk_text
 
 def process_file(file_path: str, file_type: str):
@@ -26,10 +26,10 @@ def process_pdf(file_path: str) -> str:
     """
     Processes a PDF file and extracts its text content.
     """
-    doc = fitz.open(file_path)
+    reader = PdfReader(file_path)
     text = ""
-    for page in doc:
-        text += page.get_text()
+    for page in reader.pages:
+        text += page.extract_text() or ""
     return text
 
 def process_docx(file_path: str) -> str:
