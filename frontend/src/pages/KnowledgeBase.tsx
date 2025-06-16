@@ -51,7 +51,7 @@ const KnowledgeBase = () => {
         mutationFn: (fileName: string) => {
             return axios.delete(`http://localhost:8000/documents/${fileName}`);
         },
-        onSuccess: (data, fileName) => {
+        onSuccess: (_data, fileName) => {
             alert(`Document "${fileName}" deleted successfully!`);
             queryClient.invalidateQueries({ queryKey: ['documents'] });
         },
