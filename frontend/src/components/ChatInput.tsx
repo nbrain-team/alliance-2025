@@ -1,5 +1,5 @@
 import { TextField, Flex, IconButton } from '@radix-ui/themes';
-import { PaperPlaneIcon, PlusIcon } from '@radix-ui/react-icons';
+import { PaperPlaneIcon } from '@radix-ui/react-icons';
 import React from 'react';
 
 interface ChatInputProps {
