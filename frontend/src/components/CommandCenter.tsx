@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { IconButton, TextField } from '@radix-ui/themes';
-import { PaperPlaneIcon } from '@radix-ui/react-icons';
 
 interface CommandCenterProps {
   input: string;
