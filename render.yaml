@@ -10,7 +10,7 @@ services:
       - key: PYTHON_VERSION
         value: '3.11.0'
 
-  - type: static
+  - type: static_site
     name: adtv-frontend
     region: oregon
     plan: free
