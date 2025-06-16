@@ -1,9 +1,10 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form
 from dotenv import load_dotenv
 import os
 import shutil
 from core.processor import process_file
 from core.pinecone_manager import PineconeManager
+from core.llm_handler import LLMHandler
 
 load_dotenv()
 
@@ -47,4 +48,20 @@ async def upload_document(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         if os.path.exists(temp_file_path):
-            os.remove(temp_file_path) 
+            os.remove(temp_file_path)
+
+@app.post("/query")
+async def query_documents(query: str = Form(...)):
+    """
+    Queries the vector database for a given question and returns a generated answer.
+    """
+    try:
+        pinecone_manager = PineconeManager()
+        context_chunks = pinecone_manager.query_index(query)
+
+        llm_handler = LLMHandler()
+        answer = llm_handler.generate_answer(query, context_chunks)
+        
+        return {"answer": answer, "context": context_chunks}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) 

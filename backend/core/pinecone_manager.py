@@ -23,9 +23,27 @@ class PineconeManager:
 
     def upsert_chunks(self, chunks: list, metadata: dict):
         index = self.get_or_create_index()
+        
+        # Add the text of each chunk to its metadata
+        docs_with_metadata = []
+        for i, chunk in enumerate(chunks):
+            doc_metadata = metadata.copy()
+            doc_metadata["text"] = chunk
+            docs_with_metadata.append(doc_metadata)
+
         Pinecone.from_texts(
             texts=chunks,
             embedding=self.embeddings,
-            metadatas=[metadata] * len(chunks),
+            metadatas=docs_with_metadata,
             index_name=self.index_name
-        ) 
+        )
+
+    def query_index(self, query: str, top_k: int = 5):
+        index = self.get_or_create_index()
+        query_embedding = self.embeddings.embed_query(query)
+        results = index.query(
+            vector=query_embedding,
+            top_k=top_k,
+            include_metadata=True
+        )
+        return [match['metadata']['text'] for match in results['matches']] 
