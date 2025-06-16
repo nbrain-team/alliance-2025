@@ -1,9 +1,8 @@
-import { Box, Flex, Grid, Text, Button, ScrollArea } from '@radix-ui/themes';
+import { Box, Flex, Text, ScrollArea } from '@radix-ui/themes';
 import { ChatInput } from './components/ChatInput';
 import { useState, useRef } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import axios from 'axios';
-import { PlusIcon, FileIcon, PaperPlaneIcon } from '@radix-ui/react-icons';
 
 // Define the structure for a message
 interface Message {

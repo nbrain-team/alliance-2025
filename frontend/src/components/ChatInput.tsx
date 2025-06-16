@@ -1,4 +1,4 @@
-import { TextField, Button, Flex, IconButton } from '@radix-ui/themes';
+import { TextField, Flex, IconButton } from '@radix-ui/themes';
 import { PaperPlaneIcon, PlusIcon } from '@radix-ui/react-icons';
 import React from 'react';
 
