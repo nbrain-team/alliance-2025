@@ -1,40 +1,84 @@
 import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { Checkbox, IconButton } from '@radix-ui/themes';
 import { TrashIcon } from '@radix-ui/react-icons';
 
+// Define an interface for the document structure
+interface Document {
+    name: string;
+    type: string;
+    status: string;
+}
+
 const KnowledgeBase = () => {
+    const queryClient = useQueryClient();
     const [file, setFile] = useState<File | null>(null);
     const [docType, setDocType] = useState('brand_content');
     const [url, setUrl] = useState('');
+    const [selectedDocs, setSelectedDocs] = useState<string[]>([]);
+    const [query, setQuery] = useState('');
+    const [queryResponse, setQueryResponse] = useState('');
 
-    // Dummy data for the library
-    const [documents, _setDocuments] = useState([
-        { id: 1, name: 'Q4_2023_Earnings_Call.pdf', type: 'Brand Content', status: 'Ready' },
-        { id: 2, name: 'Competitor_Analysis_Report.docx', type: 'Industry Data', status: 'Ready' },
-        { id: 3, name: 'https://www.some-industry-report.com', type: 'Industry Data', status: 'Processing' },
-    ]);
+    // --- Data Fetching ---
+    const { data: documents = [], isLoading: isLoadingDocs } = useQuery<Document[]>({
+        queryKey: ['documents'],
+        queryFn: async () => {
+            const response = await axios.get('http://localhost:8000/documents');
+            return response.data;
+        }
+    });
 
+    // --- Mutations ---
     const uploadMutation = useMutation({
         mutationFn: (formData: FormData) => {
             return axios.post('http://localhost:8000/upload', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
         },
-        onSuccess: (data) => {
-            console.log('Upload successful:', data);
-            // Here you would add the new document to the list
-            // For now, just show a success message or clear the form
+        onSuccess: () => {
             alert('File uploaded successfully!');
             setFile(null);
+            queryClient.invalidateQueries({ queryKey: ['documents'] });
         },
         onError: (error: any) => {
             const errorMessage = error.response?.data?.detail || "Upload failed";
             alert(`Error: ${errorMessage}`);
         },
     });
+    
+    const deleteMutation = useMutation({
+        mutationFn: (fileName: string) => {
+            return axios.delete(`http://localhost:8000/documents/${fileName}`);
+        },
+        onSuccess: (data, fileName) => {
+            alert(`Document "${fileName}" deleted successfully!`);
+            queryClient.invalidateQueries({ queryKey: ['documents'] });
+        },
+        onError: (error: any, fileName) => {
+            const errorMessage = error.response?.data?.detail || "Deletion failed";
+            alert(`Error deleting "${fileName}": ${errorMessage}`);
+        },
+    });
+    
+    const queryMutation = useMutation({
+        mutationFn: (variables: { query: string; file_names: string[] }) => {
+            const { query, file_names } = variables;
+            const params = new URLSearchParams();
+            params.append('query', query);
+            file_names.forEach(name => params.append('file_names', name));
+            return axios.post('http://localhost:8000/query', params);
+        },
+        onSuccess: (data) => {
+            setQueryResponse(data.data.answer);
+        },
+        onError: (error: any) => {
+            const errorMessage = error.response?.data?.detail || "Query failed";
+            setQueryResponse(`Error: ${errorMessage}`);
+        },
+    });
 
+    // --- Event Handlers ---
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         if (event.target.files) {
             setFile(event.target.files[0]);
@@ -49,13 +93,34 @@ const KnowledgeBase = () => {
         }
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('doc_type', docType); // Example of sending extra data
+        formData.append('doc_type', docType);
         uploadMutation.mutate(formData);
     };
-
+    
     const handleCrawlSubmit = (event: React.FormEvent) => {
         event.preventDefault();
         alert('Crawling functionality is not yet implemented.');
+    };
+
+    const handleDocSelectionChange = (fileName: string, isSelected: boolean) => {
+        if (isSelected) {
+            setSelectedDocs(prev => [...prev, fileName]);
+        } else {
+            setSelectedDocs(prev => prev.filter(name => name !== fileName));
+        }
+    };
+    
+    const handleQuerySubmit = (event: React.FormEvent) => {
+        event.preventDefault();
+        if (!query.trim()) {
+            alert("Please enter a question.");
+            return;
+        }
+        if (selectedDocs.length === 0) {
+            alert("Please select at least one document to query.");
+            return;
+        }
+        queryMutation.mutate({ query, file_names: selectedDocs });
     };
 
     return (
@@ -93,7 +158,7 @@ const KnowledgeBase = () => {
                         {/* File Upload Form */}
                         <form onSubmit={handleUploadSubmit} className="form-group">
                             <label htmlFor="file-input">Upload a Document</label>
-                            <input type="file" id="file-input" onChange={handleFileChange} />
+                            <input type="file" id="file-input" onChange={handleFileChange} key={file ? file.name : ''} />
                             <label htmlFor="doc-type-upload">Document Type</label>
                             <select id="doc-type-upload" value={docType} onChange={e => setDocType(e.target.value)}>
                                 <option value="brand_content">Brand Content</option>
@@ -128,7 +193,7 @@ const KnowledgeBase = () => {
                     <table id="document-table">
                         <thead>
                             <tr>
-                                <th><Checkbox id="select-all-checkbox" /></th>
+                                <th><Checkbox disabled/></th>
                                 <th>Title / Source</th>
                                 <th>Type</th>
                                 <th>Status</th>
@@ -136,35 +201,49 @@ const KnowledgeBase = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {documents.map(doc => (
-                                <tr key={doc.id}>
-                                    <td><Checkbox /></td>
-                                    <td>{doc.name}</td>
-                                    <td>{doc.type}</td>
-                                    <td>
-                                        <span className={`status ${doc.status === 'Ready' ? 'status-ready' : 'status-processing'}`}>
-                                            {doc.status}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <IconButton variant="ghost" color="red" disabled>
-                                            <TrashIcon />
-                                        </IconButton>
-                                    </td>
-                                </tr>
-                            ))}
+                            {isLoadingDocs ? (
+                                <tr><td colSpan={5}>Loading documents...</td></tr>
+                            ) : (
+                                documents.map(doc => (
+                                    <tr key={doc.name}>
+                                        <td><Checkbox onCheckedChange={(checked) => handleDocSelectionChange(doc.name, !!checked)} /></td>
+                                        <td>{doc.name}</td>
+                                        <td>{doc.type}</td>
+                                        <td>
+                                            <span className={`status status-ready`}>
+                                                {doc.status}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <IconButton variant="ghost" color="red" onClick={() => deleteMutation.mutate(doc.name)} disabled={deleteMutation.isPending}>
+                                                <TrashIcon />
+                                            </IconButton>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
                         </tbody>
                     </table>
-                    <div className="query-area">
-                        <h3>Query Selected Documents</h3>
-                        <div className="query-controls">
-                            <input type="text" id="query-input" placeholder="Ask a question to the selected documents..." />
-                            <button id="query-btn" className="submit-btn" disabled>Ask</button>
+                     <form onSubmit={handleQuerySubmit}>
+                        <div className="query-area">
+                            <h3>Query Selected Documents</h3>
+                            <div className="query-controls">
+                                <input 
+                                    type="text" 
+                                    id="query-input" 
+                                    placeholder="Ask a question to the selected documents..." 
+                                    value={query}
+                                    onChange={e => setQuery(e.target.value)}
+                                />
+                                <button id="query-btn" type="submit" className="submit-btn" disabled={queryMutation.isPending || selectedDocs.length === 0}>
+                                    {queryMutation.isPending ? 'Asking...' : 'Ask'}
+                                </button>
+                            </div>
+                            <div id="query-response">
+                                <p>{queryMutation.isPending ? 'Thinking...' : queryResponse || 'Your answer will appear here...'}</p>
+                            </div>
                         </div>
-                        <div id="query-response">
-                            <p>Your answer will appear here...</p>
-                        </div>
-                    </div>
+                    </form>
                 </section>
             </div>
         </div>
