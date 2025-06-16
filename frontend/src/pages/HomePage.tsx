@@ -2,7 +2,7 @@ import { Box, Flex, Text, ScrollArea } from '@radix-ui/themes';
 import { CommandCenter } from '../components/CommandCenter';
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import axios from 'axios';
+import api from '../api';
 import React from 'react';
 
 // Define the structure for a message
@@ -22,7 +22,7 @@ function HomePage({ messages, setMessages }: HomePageProps) {
 
   // --- Backend Mutations ---
   const queryMutation = useMutation({
-    mutationFn: (newQuery: string) => axios.post('http://localhost:8000/query', new URLSearchParams({ query: newQuery })),
+    mutationFn: (newQuery: string) => api.post('/query', new URLSearchParams({ query: newQuery })),
     onSuccess: (data) => {
       setMessages((prev) => [...prev, { text: data.data.answer, sender: 'ai' }]);
     },

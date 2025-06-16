@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import axios from 'axios';
+import api from '../api';
 import { Checkbox, IconButton } from '@radix-ui/themes';
 import { TrashIcon } from '@radix-ui/react-icons';
 
@@ -24,7 +24,7 @@ const KnowledgeBase = () => {
     const { data: documents = [], isLoading: isLoadingDocs } = useQuery<Document[]>({
         queryKey: ['documents'],
         queryFn: async () => {
-            const response = await axios.get('http://localhost:8000/documents');
+            const response = await api.get('/documents');
             return response.data;
         }
     });
@@ -32,7 +32,7 @@ const KnowledgeBase = () => {
     // --- Mutations ---
     const uploadMutation = useMutation({
         mutationFn: (formData: FormData) => {
-            return axios.post('http://localhost:8000/upload', formData, {
+            return api.post('/upload', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
         },
@@ -49,7 +49,7 @@ const KnowledgeBase = () => {
     
     const deleteMutation = useMutation({
         mutationFn: (fileName: string) => {
-            return axios.delete(`http://localhost:8000/documents/${fileName}`);
+            return api.delete(`/documents/${fileName}`);
         },
         onSuccess: (_data, fileName) => {
             alert(`Document "${fileName}" deleted successfully!`);
@@ -67,7 +67,7 @@ const KnowledgeBase = () => {
             const params = new URLSearchParams();
             params.append('query', query);
             file_names.forEach(name => params.append('file_names', name));
-            return axios.post('http://localhost:8000/query', params);
+            return api.post('/query', params);
         },
         onSuccess: (data) => {
             setQueryResponse(data.data.answer);
