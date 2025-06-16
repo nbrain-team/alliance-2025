@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api';
 import { Checkbox, IconButton } from '@radix-ui/themes';
 import { TrashIcon } from '@radix-ui/react-icons';
+import axios from 'axios';
 
 // Define an interface for the document structure
 interface Document {
@@ -19,6 +20,7 @@ const KnowledgeBase = () => {
     const [selectedDocs, setSelectedDocs] = useState<string[]>([]);
     const [query, setQuery] = useState('');
     const [queryResponse, setQueryResponse] = useState('');
+    const [uploadStatus, setUploadStatus] = useState('');
 
     // --- Data Fetching ---
     const { data: documents = [], isLoading: isLoadingDocs } = useQuery<Document[]>({
@@ -31,17 +33,40 @@ const KnowledgeBase = () => {
 
     // --- Mutations ---
     const uploadMutation = useMutation({
-        mutationFn: (formData: FormData) => {
-            return api.post('/upload', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
+        mutationFn: async (uploadFile: File) => {
+            // 1. Get pre-signed URL
+            setUploadStatus('Getting upload link...');
+            const presignedUrlResponse = await api.post('/generate-upload-url', {
+                file_name: uploadFile.name,
+                content_type: uploadFile.type,
             });
+            
+            const { upload_url, file_name } = presignedUrlResponse.data;
+
+            // 2. Upload file to GCS
+            setUploadStatus('Uploading file...');
+            await axios.put(upload_url, uploadFile, {
+                headers: { 'Content-Type': uploadFile.type },
+            });
+
+            // 3. Notify backend
+            setUploadStatus('Processing file...');
+            const notifyResponse = await api.post('/notify-upload', {
+                file_name: file_name,
+                content_type: uploadFile.type,
+                doc_type: docType,
+            });
+            
+            return notifyResponse.data;
         },
         onSuccess: () => {
-            alert('File uploaded successfully!');
+            setUploadStatus('');
+            alert('File uploaded and processed successfully!');
             setFile(null);
             queryClient.invalidateQueries({ queryKey: ['documents'] });
         },
         onError: (error: any) => {
+            setUploadStatus('');
             const errorMessage = error.response?.data?.detail || "Upload failed";
             alert(`Error: ${errorMessage}`);
         },
@@ -91,10 +116,7 @@ const KnowledgeBase = () => {
             alert('Please select a file to upload.');
             return;
         }
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('doc_type', docType);
-        uploadMutation.mutate(formData);
+        uploadMutation.mutate(file);
     };
     
     const handleCrawlSubmit = (event: React.FormEvent) => {
@@ -167,7 +189,7 @@ const KnowledgeBase = () => {
                                 <option value="other">Other</option>
                             </select>
                             <button type="submit" className="submit-btn" disabled={uploadMutation.isPending}>
-                                {uploadMutation.isPending ? 'Uploading...' : 'Upload File'}
+                                {uploadMutation.isPending ? uploadStatus : 'Upload File'}
                             </button>
                         </form>
                         <div className="divider"></div>

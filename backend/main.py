@@ -1,11 +1,13 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, Form
 from typing import List, Optional
+from pydantic import BaseModel
 from dotenv import load_dotenv
 import os
 import shutil
 from core.processor import process_file
 from core.pinecone_manager import PineconeManager
 from core.llm_handler import LLMHandler
+from core.gcs_manager import GCSManager
 
 load_dotenv()
 
@@ -22,27 +24,48 @@ def read_root():
     """
     return {"status": "ADTV RAG API is running"}
 
-@app.post("/upload")
-async def upload_document(file: UploadFile = File(...), doc_type: str = Form(...)):
-    """
-    Uploads a document, processes it, and stores it in Pinecone.
-    """
-    if not file.filename:
-        raise HTTPException(status_code=400, detail="No file name provided.")
+class GenerateUploadUrlRequest(BaseModel):
+    file_name: str
+    content_type: str
 
-    temp_file_path = f"temp_{file.filename}"
-
+@app.post("/generate-upload-url")
+async def generate_upload_url(request: GenerateUploadUrlRequest):
+    """
+    Generates a pre-signed URL to upload a file directly to GCS.
+    """
     try:
-        with open(temp_file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        gcs_manager = GCSManager()
+        url = gcs_manager.generate_upload_url(
+            file_name=request.file_name,
+            content_type=request.content_type
+        )
+        return {"upload_url": url, "file_name": request.file_name}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-        chunks = process_file(temp_file_path, file.content_type)
+class NotifyUploadRequest(BaseModel):
+    file_name: str
+    content_type: str
+    doc_type: str
+
+@app.post("/notify-upload")
+async def notify_upload(request: NotifyUploadRequest):
+    """
+    Notifies the server that a file has been uploaded to GCS,
+    so it can be processed and indexed.
+    """
+    temp_file_path = f"temp_{request.file_name}"
+    try:
+        gcs_manager = GCSManager()
+        gcs_manager.download_to_temp_file(request.file_name, temp_file_path)
+
+        chunks = process_file(temp_file_path, request.content_type)
 
         pinecone_manager = PineconeManager()
-        metadata = {"source": file.filename, "doc_type": doc_type}
+        metadata = {"source": request.file_name, "doc_type": request.doc_type}
         pinecone_manager.upsert_chunks(chunks, metadata)
 
-        return {"message": f"Successfully uploaded and processed {file.filename}"}
+        return {"message": f"Successfully processed {request.file_name}"}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
