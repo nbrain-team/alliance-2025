@@ -1,5 +1,5 @@
-import { Box, Flex, Text, ScrollArea } from '@radix-ui/themes';
-import { ChatInput } from '../components/ChatInput';
+import { Box, Flex, Text, ScrollArea, Heading } from '@radix-ui/themes';
+import { CommandCenter } from '../components/CommandCenter';
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import axios from 'axios';
@@ -35,215 +35,332 @@ function HomePage() {
   // --- Event Handlers ---
   const handleSend = () => {
     if (input.trim()) {
-      setMessages(prev => [...prev, { text: input, sender: 'user' }, { text: 'Thinking...', sender: 'ai' }]);
+      const newMessages: Message[] = [...messages, { text: input, sender: 'user' }];
+      if (messages.length === 0) { // Add thinking message only on first send
+          newMessages.push({ text: 'Thinking...', sender: 'ai' });
+      } else {
+           setMessages(prev => [...prev, { text: 'Thinking...', sender: 'ai' }]);
+      }
+      setMessages(newMessages);
       queryMutation.mutate(input);
       setInput('');
     }
   };
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInput(e.target.value);
+  };
+  
+  const Sidebar = ({ onNavigate }: { onNavigate: (path: string) => void }) => {
+    return (
+        <Flex 
+            direction="column" 
+            align="center" 
+            gap="4"
+            style={{ 
+                width: 'var(--sidebar-width)', 
+                height: '100vh', 
+                padding: '1.5rem 0',
+                backgroundColor: 'var(--sidebar-bg)',
+                borderRight: '1px solid var(--border)',
+                boxShadow: 'var(--shadow)'
+            }}
+        >
+            <img src="/new-icons/logo.png" alt="ADTV Logo" style={{ width: '60px', height: '60px', marginBottom: '1rem' }} />
+            
+            <button className="sidebar-icon" title="New Chat" onClick={() => setMessages([])}>
+                <img src="/new-icons/1.png" alt="New Chat" />
+                <span>New Chat</span>
+            </button>
+            <button className="sidebar-icon" title="Knowledge Base" onClick={() => onNavigate('/knowledge-base')}>
+                <img src="/new-icons/2.png" alt="Upload" />
+                <span>Upload</span>
+            </button>
+        </Flex>
+    );
+  };
+
+
   return (
-    <Flex style={{ height: '100vh', width: '100vw', overflow: 'hidden' }}>
-      <style>{STYLES}</style>
-      {/* --- Sidebar --- */}
-      <Sidebar onNavigate={navigate} />
-
-      {/* --- Main Content --- */}
-      <Flex direction="column" style={{ flexGrow: 1, height: '100vh' }}>
-        {/* --- Header --- */}
-        <Header />
-
-        {/* --- Chat Area --- */}
-        <ScrollArea style={{ flexGrow: 1 }}>
-          <Box style={{ padding: '1.5rem' }}>
+    <>
+        <style>{STYLES}</style>
+        <Flex style={{ height: '100vh', width: '100vw', overflow: 'hidden', background: 'var(--bg)' }}>
+        
+        <Sidebar onNavigate={navigate} />
+        
+        <Flex direction="column" style={{ flexGrow: 1, height: '100vh' }}>
             {messages.length === 0 ? (
-              <InitialView />
+                 <div className="initial-view-container">
+                    <div className="initial-text-content">
+                        <h1>Welcome to ADTV</h1>
+                        <p>Ask questions about your ads, analytics, or performance. Start by typing your query below.</p>
+                    </div>
+                </div>
             ) : (
-              <Flex direction="column" gap="3">
-                {messages.map((msg, index) => (
-                  <ChatBubble key={index} message={msg} />
-                ))}
-              </Flex>
+                <ScrollArea style={{ flexGrow: 1, padding: '1.5rem', overflowY: 'auto' }}>
+                    <Flex direction="column" gap="4" className="chat-history">
+                        {messages.map((msg, index) => (
+                        <Box key={index} className={`chat-bubble ${msg.sender === 'user' ? 'user-bubble' : 'assistant-bubble'}`}>
+                            {msg.text === 'Thinking...' ? (
+                                <div className="loading-dots"><span>.</span><span>.</span><span>.</span></div>
+                            ) : (
+                                <Text>{msg.text}</Text>
+                            )}
+                        </Box>
+                        ))}
+                    </Flex>
+                </ScrollArea>
             )}
-          </Box>
-        </ScrollArea>
 
-        {/* --- Input Area --- */}
-        <Box style={{ padding: '1rem 1.5rem', borderTop: '1px solid var(--border)' }}>
-          <ChatInput
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onSend={handleSend}
-            isLoading={queryMutation.isPending}
-          />
-        </Box>
-      </Flex>
-    </Flex>
+            <Box style={{ padding: '0 1.5rem 1rem 1.5rem', borderTop: '1px solid var(--border)'}}>
+                 <CommandCenter 
+                    input={input}
+                    onInputChange={handleInputChange}
+                    onSend={handleSend}
+                    isLoading={queryMutation.isPending}
+                />
+            </Box>
+        </Flex>
+        </Flex>
+    </>
   );
 }
 
-// --- Sub-components ---
-
-const Sidebar = ({ onNavigate }: { onNavigate: (path: string) => void }) => (
-  <Flex
-    direction="column"
-    align="center"
-    gap="4"
-    style={{
-      width: 'var(--sidebar-width)',
-      backgroundColor: 'var(--sidebar-bg)',
-      borderRight: '1px solid var(--border)',
-      padding: '1.5rem 0.5rem',
-      boxShadow: 'var(--shadow)',
-    }}
-  >
-    <img src="/new-icons/1.png" alt="Company Logo" style={{ width: '48px', height: '48px' }} />
-    <SidebarButton icon="/new-icons/2.png" title="History" />
-    <SidebarButton icon="/new-icons/4.png" title="Upload" onClick={() => onNavigate('/knowledge-base')} />
-    <SidebarButton icon="/new-icons/5.png" title="Industry Feed" />
-    <SidebarButton icon="/new-icons/11.png" title="Reporting Queue" />
-    <Box style={{ flexGrow: 1 }} />
-    <SidebarButton icon="/new-icons/6.png" title="Logout" />
-  </Flex>
-);
-
-const SidebarButton = ({ icon, title, onClick }: { icon: string; title: string, onClick?: () => void }) => (
-  <button className="sidebar-icon-placeholder" title={title} onClick={onClick}>
-    <img src={icon} alt={title} style={{ width: '28px', height: '28px' }} />
-  </button>
-);
-
-
-const Header = () => (
-  <Flex
-    align="center"
-    justify="between"
-    style={{
-      padding: '1rem 1.5rem',
-      borderBottom: '1px solid var(--border)',
-      boxShadow: 'var(--shadow)',
-      backgroundColor: 'var(--header-bg)',
-    }}
-  >
-    <Text size="5" weight="bold" style={{ color: 'var(--primary)' }}>AdsIntelligence</Text>
-    {/* Placeholder for future controls */}
-    <Box />
-  </Flex>
-);
-
-const InitialView = () => (
-  <Box className="initial-view-container">
-    <Box className="initial-text-content">
-      <h1>Welcome to ADTV</h1>
-      <p>Your AI-powered command center. Upload documents or ask questions to get started.</p>
-    </Box>
-  </Box>
-);
-
-const ChatBubble = ({ message }: { message: Message }) => {
-  const isUser = message.sender === 'user';
-  const bubbleClass = isUser ? 'user-bubble' : 'assistant-bubble';
-  const textContent = message.text;
-
-  const createMarkup = (text: string) => {
-    return { __html: text };
-  };
-
-  return (
-    <Box
-      className={`chat-bubble ${bubbleClass}`}
-      style={{
-        alignSelf: isUser ? 'flex-end' : 'flex-start',
-        whiteSpace: 'pre-wrap', // Ensures formatting is preserved
-      }}
-    >
-      {/* Using dangerouslySetInnerHTML to render potential HTML content from the LLM */}
-      {textContent.includes('<') ? (
-        <div dangerouslySetInnerHTML={createMarkup(textContent)} />
-      ) : (
-        <Text>{textContent}</Text>
-      )}
-    </Box>
-  );
-};
-
-
-// --- Styles from base.html and index.html ---
 const STYLES = `
-  :root {
-    --primary: #313d74;
-    --primary-light: #e8eaf6;
-    --bg: #f7fafd;
-    --sidebar-bg: #ffffff;
-    --sidebar-width: 125px;
-    --card-bg: #fff;
-    --shadow: 0 2px 16px rgba(0,0,0,0.06);
-    --border: #e5e7eb;
-    --radius: 14px;
-    --gray: #64748b;
-    --gray-light: #f1f5f9;
-    --accent: #313d74;
-    --text-primary: #222;
-    --text-secondary: #4b5563;
-    --icon-color: #6b7280;
-    --icon-hover-color: var(--primary);
-    --input-bg: #fff;
-    --input-border: var(--border);
-    --command-center-bg: #ffffff;
-    --header-bg: #ffffff;
-  }
-  .sidebar-icon-placeholder {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.75rem;
-    border-radius: var(--radius);
-    cursor: pointer;
-    transition: background-color 0.2s, color 0.2s;
-    color: var(--icon-color);
-    width: 48px;
-    height: 48px;
-    background: none;
-    border: none;
-  }
-  .sidebar-icon-placeholder:hover {
-    background-color: var(--primary-light);
-    color: var(--primary);
-  }
-  .initial-view-container {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    height: 100%;
-    text-align: center;
-    color: var(--text-secondary);
-  }
-  .initial-text-content {
-    max-width: 500px;
-  }
-  .initial-text-content h1 {
-    font-size: 2.5rem;
-    color: var(--primary);
-    margin-bottom: 0.5rem;
-  }
-  .chat-bubble {
-    max-width: 75%;
-    padding: 0.75rem 1rem;
-    border-radius: var(--radius);
-    line-height: 1.5;
-  }
-  .user-bubble {
-    background-color: var(--primary);
-    color: white;
-    border-bottom-right-radius: 0;
-  }
-  .assistant-bubble {
-    background-color: var(--card-bg);
-    color: var(--text-primary);
-    border: 1px solid var(--border);
-    box-shadow: var(--shadow);
-    border-bottom-left-radius: 0;
-  }
+    :root {
+        --primary: #313d74;
+        --primary-light: #e8eaf6;
+        --bg: #f7fafd;
+        --sidebar-bg: #ffffff;
+        --sidebar-width: 125px;
+        --card-bg: #fff;
+        --shadow: 0 2px 16px rgba(0,0,0,0.06);
+        --border: #e5e7eb;
+        --radius: 14px;
+        --gray: #64748b;
+        --gray-light: #f1f5f9;
+        --accent: #313d74;
+        --text-primary: #222;
+        --text-secondary: #4b5563;
+        --header-bg: #ffffff;
+        --icon-color: #6b7280;
+        --icon-hover-color: var(--primary);
+        --input-bg: #fff;
+        --input-border: var(--border);
+    }
+    .sidebar-icon {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 0.75rem;
+        border-radius: var(--radius);
+        transition: background-color 0.2s, color 0.2s;
+        width: 80%;
+        color: var(--icon-color);
+    }
+    .sidebar-icon img {
+        width: 32px;
+        height: 32px;
+        object-fit: contain;
+    }
+    .sidebar-icon span {
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+    .sidebar-icon:hover {
+        background-color: var(--primary-light);
+        color: var(--primary);
+    }
+
+    .initial-view-container {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        text-align: left;
+        padding: 2rem 1.5rem;
+        flex-grow: 1;
+        padding-left: 3rem;
+    }
+    .initial-text-content {
+        max-width: 600px;
+        margin-left: 0;
+        text-align: left;
+    }
+    .initial-view-container h1 {
+        font-size: 2rem;
+        color: var(--primary);
+        margin-bottom: 0.5rem;
+    }
+    .initial-view-container p {
+        font-size: 1.1rem;
+        color: var(--text-secondary);
+        margin-bottom: 2rem;
+    }
+    .chat-history {
+        flex-grow: 1;
+        padding: 1.5rem;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+    .chat-bubble {
+        max-width: 80%;
+        padding: 0.7rem 1.1rem;
+        border-radius: var(--radius);
+        font-size: 1rem;
+        box-shadow: var(--shadow);
+        line-height: 1.5;
+        word-wrap: break-word;
+    }
+    .user-bubble {
+        align-self: flex-end;
+        background: var(--primary-light);
+        color: var(--text-primary);
+        border-top-right-radius: 4px;
+    }
+    .assistant-bubble {
+        align-self: flex-start;
+        background: var(--card-bg);
+        color: var(--text-primary);
+        border: 1px solid var(--border);
+        border-top-left-radius: 4px;
+        position: relative;
+    }
+    .loading-dots { font-size: 1.2em; letter-spacing: 2px; animation: blink-smooth 1.4s infinite both; }
+    .loading-dots span { animation: blink-smooth 1.4s infinite both; }
+    .loading-dots span:nth-child(2) { animation-delay: .2s; }
+    .loading-dots span:nth-child(3) { animation-delay: .4s; }
+    @keyframes blink-smooth { 0%, 80%, 100% { opacity: 0; } 40% { opacity: 1; } }
+    
+    .command-center {
+        padding: 1rem 0;
+        width: 100%;
+        box-sizing: border-box;
+        z-index: 100;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        position: relative;
+        overflow: visible;
+        flex-wrap: nowrap;
+    }
+    .command-center-input {
+        flex-grow: 1;
+    }
+    .command-center-icon-button {
+        background: none;
+        border: none;
+        padding: 0.5rem;
+        cursor: pointer;
+        color: var(--icon-color);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background-color 0.2s, color 0.2s;
+        position: relative;
+    }
+    .command-center-icon-button:hover {
+        background-color: var(--gray-light);
+        color: var(--icon-hover-color);
+    }
+    .command-center-icon-button.disabled { opacity: 0.5; pointer-events: none; }
+    
+    .controls-popover {
+        display: block;
+        position: absolute;
+        bottom: calc(100% + 0.5rem);
+        background-color: var(--card-bg);
+        border-radius: var(--radius);
+        box-shadow: 0 -4px 20px rgba(0,0,0,0.1);
+        border: 1px solid var(--border);
+        padding: 1rem;
+        z-index: 1000;
+        width: 300px;
+        color: var(--text-primary);
+    }
+     .controls-popover-content {
+        min-height: 100px;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    .scrollable-metric-list {
+        max-height: 400px;
+        overflow-y: auto;
+        margin: 0.5rem 0;
+    }
+    .popover-option {
+        padding: 0.75rem;
+        cursor: pointer;
+        border-radius: 8px;
+        transition: background-color 0.2s;
+        font-size: 0.95rem;
+    }
+    .popover-option:hover {
+        background-color: var(--gray-light);
+    }
+    .popover-label {
+        display: block;
+        margin: 0.5rem 0;
+        font-size: 0.9rem;
+    }
+    hr {
+        border: none;
+        border-top: 1px solid var(--border);
+        margin: 1rem 0;
+    }
+    .switch {
+        position: relative;
+        display: inline-block;
+        width: 40px;
+        height: 22px;
+    }
+    .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+    .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #ccc;
+        transition: .4s;
+    }
+    .slider:before {
+        position: absolute;
+        content: "";
+        height: 16px;
+        width: 16px;
+        left: 3px;
+        bottom: 3px;
+        background-color: white;
+        transition: .4s;
+    }
+    input:checked + .slider {
+        background-color: var(--primary);
+    }
+    input:checked + .slider:before {
+        transform: translateX(18px);
+    }
+    .slider.round {
+        border-radius: 22px;
+    }
+    .slider.round:before {
+        border-radius: 50%;
+    }
+    #date-controls-popover {
+        min-height: 350px !important;
+    }
 `;
+
 
 export default HomePage; 
