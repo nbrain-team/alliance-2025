@@ -172,27 +172,6 @@ const KnowledgeBase = () => {
 };
 
 const STYLES = `
-    :root {
-        --primary: #313d74;
-        --primary-light: #e8eaf6;
-        --bg: #f7fafd;
-        --sidebar-bg: #ffffff;
-        --sidebar-width: 125px;
-        --card-bg: #fff;
-        --shadow: 0 2px 16px rgba(0,0,0,0.06);
-        --border: #e5e7eb;
-        --radius: 14px;
-        --gray: #64748b;
-        --gray-light: #f1f5f9;
-        --accent: #313d74;
-        --text-primary: #222;
-        --text-secondary: #4b5563;
-        --header-bg: #ffffff;
-        --icon-color: #6b7280;
-        --warning: #f59e0b;
-        --success: #10b981;
-        --danger: #ef4444;
-    }
     .knowledge-base-container {
         display: flex;
         flex-direction: column;
