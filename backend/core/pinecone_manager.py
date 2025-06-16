@@ -2,29 +2,43 @@ import os
 from pinecone import Pinecone as PineconeClient, PodSpec
 from langchain_pinecone import Pinecone
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from typing import List
 
 class PineconeManager:
     def __init__(self):
-        self.pinecone = PineconeClient(
-            api_key=os.environ["PINECONE_API_KEY"]
-        )
-        self.index_name = "adtv-index"
+        self.api_key = os.getenv("PINECONE_API_KEY")
+        self.environment = os.getenv("PINECONE_ENVIRONMENT")
+        self.index_name = os.getenv("PINECONE_INDEX_NAME")
+
+        if not all([self.api_key, self.environment, self.index_name]):
+            raise ValueError("Pinecone API key, environment, or index name not set.")
+
+        pinecone.init(api_key=self.api_key, environment=self.environment)
+        
+        if self.index_name not in pinecone.list_indexes():
+            pinecone.create_index(
+                name=self.index_name,
+                dimension=768, 
+                metric='cosine'
+            )
+        self.index = pinecone.Index(self.index_name)
+
         self.embeddings = GoogleGenerativeAIEmbeddings(
             model="models/embedding-001",
             google_api_key=os.environ["GEMINI_API_KEY"]
         )
 
     def get_or_create_index(self):
-        if self.index_name not in self.pinecone.list_indexes().names():
-            self.pinecone.create_index(
+        if self.index_name not in pinecone.list_indexes():
+            pinecone.create_index(
                 name=self.index_name,
                 dimension=768,  # Gemini's embedding model dimension
                 metric="cosine",
-                spec=PodSpec(environment=os.environ["PINECONE_ENVIRONMENT"])
+                spec=PodSpec(environment=self.environment)
             )
-        return self.pinecone.Index(self.index_name)
+        return pinecone.Index(self.index_name)
 
-    def upsert_chunks(self, chunks: list, metadata: dict):
+    def upsert_chunks(self, chunks: List[str], metadata: dict):
         index = self.get_or_create_index()
         
         # Add the text of each chunk to its metadata
