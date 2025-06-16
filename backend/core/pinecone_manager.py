@@ -1,7 +1,7 @@
 import os
 from pinecone import Pinecone as PineconeClient, PodSpec
 from langchain_pinecone import Pinecone
-from langchain_openai import OpenAIEmbeddings
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
 class PineconeManager:
     def __init__(self):
@@ -9,13 +9,16 @@ class PineconeManager:
             api_key=os.environ["PINECONE_API_KEY"]
         )
         self.index_name = "adtv-index"
-        self.embeddings = OpenAIEmbeddings(model="text-embedding-ada-002")
+        self.embeddings = GoogleGenerativeAIEmbeddings(
+            model="models/embedding-001",
+            google_api_key=os.environ["GEMINI_API_KEY"]
+        )
 
     def get_or_create_index(self):
         if self.index_name not in self.pinecone.list_indexes().names():
             self.pinecone.create_index(
                 name=self.index_name,
-                dimension=1536,  # OpenAI's ada-002 model
+                dimension=768,  # Gemini's embedding model dimension
                 metric="cosine",
                 spec=PodSpec(environment=os.environ["PINECONE_ENVIRONMENT"])
             )
