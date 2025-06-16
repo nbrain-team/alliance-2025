@@ -7,18 +7,11 @@ services:
     buildCommand: 'pip install -r backend/requirements.txt'
     startCommand: 'cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT'
     envVars:
-      - key: PINECONE_API_KEY
-        fromSecret: true
-      - key: PINECONE_ENVIRONMENT
-        fromSecret: true
-      - key: GEMINI_API_KEY
-        fromSecret: true
       - key: PYTHON_VERSION
-        value: 3.11.0
+        value: '3.11.0'
 
-  - type: web
+  - type: static
     name: adtv-frontend
-    env: node
     region: oregon
     plan: free
     buildCommand: 'cd frontend && npm install && npm run build'
