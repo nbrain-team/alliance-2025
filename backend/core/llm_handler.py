@@ -1,5 +1,6 @@
 import os
 from langchain_google_genai import ChatGoogleGenerativeAI
+from typing import AsyncGenerator
 
 class LLMHandler:
     def __init__(self):
@@ -8,7 +9,7 @@ class LLMHandler:
             google_api_key=os.environ["GEMINI_API_KEY"]
         )
 
-    def generate_answer(self, query: str, context: list[str]) -> str:
+    async def stream_answer(self, query: str, context: list[str]) -> AsyncGenerator[str, None]:
         """
         Generates an answer using the LLM based on the query and context.
         """
@@ -23,8 +24,8 @@ class LLMHandler:
 
         QUESTION: {query}
 
-        Respond clearly and conversationally.
+        Respond clearly and conversationally. Format your response using Markdown, including tables when appropriate.
         """
         
-        response = self.llm.invoke(prompt_template)
-        return response 
+        async for chunk in self.llm.astream(prompt_template):
+            yield chunk.content 

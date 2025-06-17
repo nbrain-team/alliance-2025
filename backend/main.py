@@ -1,6 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, Form, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List, Optional
+from fastapi.responses import StreamingResponse
+from typing import List, Optional, AsyncGenerator
 from pydantic import BaseModel
 from dotenv import load_dotenv
 import os
@@ -26,6 +27,7 @@ async def lifespan(app: FastAPI):
     print("Application startup: Initializing service managers...")
     state["pinecone_manager"] = PineconeManager()
     state["gcs_manager"] = GCSManager()
+    state["llm_handler"] = LLMHandler() # Initialize LLM Handler at startup
     print("Application startup: Initialization complete.")
     yield
     # Code to run on shutdown
@@ -153,16 +155,21 @@ async def delete_document(file_name: str):
 @app.post("/query")
 async def query_documents(query: str = Form(...), file_names: Optional[List[str]] = Form(None)):
     """
-    Queries the vector database for a given question and returns a generated answer.
-    Can be filtered by a list of file names.
+    Queries the vector database and streams the response.
     """
-    try:
-        pinecone_manager = state["pinecone_manager"]
-        context_chunks = pinecone_manager.query_index(query, file_names=file_names)
+    async def stream_answer() -> AsyncGenerator[str, None]:
+        try:
+            pinecone_manager = state["pinecone_manager"]
+            llm_handler = state["llm_handler"]
 
-        llm_handler = LLMHandler()
-        answer = llm_handler.generate_answer(query, context_chunks)
-        
-        return {"answer": answer, "context": context_chunks}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) 
+            context_chunks = pinecone_manager.query_index(query, file_names=file_names if file_names else None)
+
+            # Use the streaming method from LLMHandler
+            async for chunk in llm_handler.stream_answer(query, context_chunks):
+                yield chunk
+        except Exception as e:
+            print(f"Error in stream_answer: {e}")
+            # Yield a final message to indicate an error to the client
+            yield f"Error: {str(e)}"
+
+    return StreamingResponse(stream_answer(), media_type="text/event-stream") 
