@@ -33,11 +33,11 @@ async def lifespan(app: FastAPI):
             "PINECONE_ENVIRONMENT",
             "GEMINI_API_KEY",
             "GCS_BUCKET_NAME",
-            "GOOGLE_APPLICATION_CREDENTIALS_BASE64",
+            "GOOGLE_APPLICATION_CREDENTIALS",
         ]
         missing_vars = [v for v in required_env_vars if v not in os.environ]
         if missing_vars:
-            error_msg = f"CRITICAL ERROR: Missing environment variables: {', '.join(missing_vars)}. Please set them in the Render secret group 'adtv-secrets'."
+            error_msg = f"CRITICAL ERROR: Missing environment variables: {', '.join(missing_vars)}. Please set them for the 'adtv-backend' service."
             print(error_msg, file=sys.stderr)
             raise RuntimeError(error_msg)
 

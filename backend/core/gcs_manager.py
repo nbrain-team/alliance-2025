@@ -11,26 +11,13 @@ class GCSManager:
         if not self.bucket_name:
             raise ValueError("GCS_BUCKET_NAME environment variable not set.")
 
-        gcs_creds_base64 = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS_BASE64")
-        if not gcs_creds_base64:
-            raise ValueError("GOOGLE_APPLICATION_CREDENTIALS_BASE64 is not set.")
+        # The google-cloud-storage library automatically looks for the
+        # GOOGLE_APPLICATION_CREDENTIALS environment variable, which should be
+        # set to the path of the service account key file provided by Render.
+        if "GOOGLE_APPLICATION_CREDENTIALS" not in os.environ:
+             raise ValueError("GOOGLE_APPLICATION_CREDENTIALS environment variable is not set. It should point to the secret file path.")
 
-        try:
-            creds_json_str = base64.b64decode(gcs_creds_base64).decode("utf-8")
-            creds_info = json.loads(creds_json_str)
-
-            with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as temp_creds:
-                json.dump(creds_info, temp_creds)
-                temp_creds_path = temp_creds.name
-            
-            self.storage_client = storage.Client.from_service_account_json(temp_creds_path)
-            
-            # Clean up the temporary file after the client has been initialized
-            os.remove(temp_creds_path)
-
-        except Exception as e:
-            raise RuntimeError(f"Failed to initialize GCSManager from Base64 credentials: {e}")
-
+        self.storage_client = storage.Client()
         self.bucket = self.storage_client.bucket(self.bucket_name)
 
     def generate_upload_url(self, file_name: str, content_type: str) -> str:
