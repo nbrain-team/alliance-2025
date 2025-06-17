@@ -60,15 +60,17 @@ const KnowledgeBase = () => {
             return notifyResponse.data;
         },
         onSuccess: () => {
-            setUploadStatus('');
-            alert('File uploaded and processed successfully!');
-            setFile(null);
+            setUploadStatus('Upload successful! Refreshing list...');
             queryClient.invalidateQueries({ queryKey: ['documents'] });
+            setFile(null);
+            // Clear the success message after a few seconds
+            setTimeout(() => {
+                setUploadStatus('');
+            }, 5000);
         },
         onError: (error: any) => {
-            setUploadStatus('');
             const errorMessage = error.response?.data?.detail || "Upload failed";
-            alert(`Error: ${errorMessage}`);
+            setUploadStatus(`Error: ${errorMessage}`);
         },
     });
     
@@ -188,8 +190,8 @@ const KnowledgeBase = () => {
                                 <option value="sop_best_practices">SOP Documents / Best Practices</option>
                                 <option value="other">Other</option>
                             </select>
-                            <button type="submit" className="submit-btn" disabled={uploadMutation.isPending}>
-                                {uploadMutation.isPending ? uploadStatus : 'Upload File'}
+                            <button type="submit" className="submit-btn" disabled={uploadMutation.isPending || !!uploadStatus}>
+                                {uploadMutation.isPending || uploadStatus ? uploadStatus : 'Upload File'}
                             </button>
                         </form>
                         <div className="divider"></div>
@@ -227,8 +229,20 @@ const KnowledgeBase = () => {
                                 <tr><td colSpan={5}>Loading documents...</td></tr>
                             ) : (
                                 documents.map(doc => (
-                                    <tr key={doc.name}>
-                                        <td><Checkbox onCheckedChange={(checked) => handleDocSelectionChange(doc.name, !!checked)} /></td>
+                                    <tr 
+                                        key={doc.name} 
+                                        onClick={() => handleDocSelectionChange(doc.name, !selectedDocs.includes(doc.name))}
+                                        style={{ 
+                                            cursor: 'pointer',
+                                            backgroundColor: selectedDocs.includes(doc.name) ? 'var(--blue-2)' : 'transparent'
+                                        }}
+                                    >
+                                        <td>
+                                            <Checkbox 
+                                                checked={selectedDocs.includes(doc.name)}
+                                                onCheckedChange={(checked) => handleDocSelectionChange(doc.name, !!checked)} 
+                                            />
+                                        </td>
                                         <td>{doc.name}</td>
                                         <td>{doc.type}</td>
                                         <td>
@@ -237,7 +251,15 @@ const KnowledgeBase = () => {
                                             </span>
                                         </td>
                                         <td>
-                                            <IconButton variant="ghost" color="red" onClick={() => deleteMutation.mutate(doc.name)} disabled={deleteMutation.isPending}>
+                                            <IconButton 
+                                                variant="ghost" 
+                                                color="red" 
+                                                onClick={(e) => {
+                                                    e.stopPropagation(); // Prevents the row's onClick from firing
+                                                    deleteMutation.mutate(doc.name);
+                                                }} 
+                                                disabled={deleteMutation.isPending}
+                                            >
                                                 <TrashIcon />
                                             </IconButton>
                                         </td>
