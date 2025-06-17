@@ -1,5 +1,5 @@
 import os
-import pinecone
+from pinecone import Pinecone, PodSpec
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_pinecone import Pinecone as LangchainPinecone
 from typing import List
@@ -16,18 +16,21 @@ class PineconeManager:
         if not all([self.pinecone_api_key, self.pinecone_environment, self.pinecone_index_name, self.gemini_api_key]):
             raise ValueError("One or more required environment variables are not set.")
 
-        # --- Initialize Pinecone client ---
-        pinecone.init(api_key=self.pinecone_api_key, environment=self.pinecone_environment)
+        # --- Initialize Pinecone client (new method) ---
+        self.pc = Pinecone(api_key=self.pinecone_api_key)
 
         # --- Create index if it doesn't exist ---
-        if self.pinecone_index_name not in pinecone.list_indexes():
-            pinecone.create_index(
+        if self.pinecone_index_name not in self.pc.list_indexes().names():
+            self.pc.create_index(
                 name=self.pinecone_index_name,
                 dimension=768,  # Gemini's embedding model dimension
-                metric='cosine'
+                metric='cosine',
+                spec=PodSpec(
+                    environment=self.pinecone_environment
+                )
             )
         
-        self.index = pinecone.Index(self.pinecone_index_name)
+        self.index = self.pc.Index(self.pinecone_index_name)
 
         # --- Initialize Google Gemini embeddings model ---
         self.embeddings = GoogleGenerativeAIEmbeddings(
@@ -69,16 +72,15 @@ class PineconeManager:
             # Deduplicate results based on the 'source' metadata
             seen_files = set()
             unique_documents = []
-            if results['matches']:
-                for match in results['matches']:
-                    file_name = match['metadata'].get('source')
-                    if file_name and file_name not in seen_files:
-                        unique_documents.append({
-                            "name": file_name,
-                            "type": match['metadata'].get('doc_type', 'N/A'),
-                            "status": "Ready"
-                        })
-                        seen_files.add(file_name)
+            for match in results.get('matches', []):
+                file_name = match['metadata'].get('source')
+                if file_name and file_name not in seen_files:
+                    unique_documents.append({
+                        "name": file_name,
+                        "type": match['metadata'].get('doc_type', 'N/A'),
+                        "status": "Ready"
+                    })
+                    seen_files.add(file_name)
             return unique_documents
         except Exception as e:
             print(f"Error listing documents from Pinecone: {e}")
