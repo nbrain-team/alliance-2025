@@ -28,14 +28,16 @@ export const CommandCenter = ({ onSend, isLoading }: CommandCenterProps) => {
 
     return (
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-            <TextField.Root 
-                placeholder="Ask a question..."
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                disabled={isLoading}
-                style={{ flexGrow: 1 }}
-            />
+            <label htmlFor="command-center-input" style={{ flexGrow: 1 }}>
+                <TextField.Root 
+                    id="command-center-input"
+                    placeholder="Ask a question..."
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    disabled={isLoading}
+                />
+            </label>
             <IconButton 
                 onClick={handleSendClick} 
                 disabled={isLoading || input.trim() === ''}

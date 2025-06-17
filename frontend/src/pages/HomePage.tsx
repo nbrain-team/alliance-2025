@@ -33,6 +33,11 @@ const HomePage = () => {
                 body: params,
             });
 
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Server responded with ${response.status}: ${errorText}`);
+            }
+
             if (!response.body) {
                 throw new Error("Response body is null");
             }
