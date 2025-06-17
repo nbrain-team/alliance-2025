@@ -2,8 +2,8 @@
 # exit on error
 set -o errexit
 
-# Install ffmpeg
+# --- Install System Dependencies ---
 apt-get update && apt-get install -y ffmpeg
 
-# Install Python dependencies
+# --- Install Python Dependencies ---
 pip install -r requirements.txt 
