@@ -5,7 +5,7 @@ from typing import AsyncGenerator
 class LLMHandler:
     def __init__(self):
         self.llm = ChatGoogleGenerativeAI(
-            model="gemini-1.0-pro",
+            model="gemini-pro",
             google_api_key=os.environ["GEMINI_API_KEY"]
         )
 
