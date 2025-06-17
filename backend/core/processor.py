@@ -8,6 +8,7 @@ import whisper
 import mimetypes
 import subprocess
 from .chunking import chunk_text
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 def process_file(file_path: str, content_type: str) -> list[str]:
     """
@@ -83,4 +84,10 @@ def chunk_text(text: str, chunk_size: int = 1000, overlap: int = 200) -> list[st
     """
     Splits a long text into smaller chunks with some overlap.
     """
-    # ... existing code ... 
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=overlap,
+        length_function=len,
+    )
+    chunks = text_splitter.split_text(text)
+    return chunks 
