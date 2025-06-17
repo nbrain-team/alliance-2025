@@ -23,4 +23,5 @@ aiofiles
 langchain-google-genai
 openai
 moviepy==1.0.3
-google-cloud-storage 
+google-cloud-storage
+openai-whisper 
