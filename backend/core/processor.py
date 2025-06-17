@@ -6,7 +6,7 @@ import os
 import tempfile
 import whisper
 import mimetypes
-from moviepy.editor import VideoFileClip
+import subprocess
 from .chunking import chunk_text
 
 def process_file(file_path: str, content_type: str) -> list[str]:
@@ -30,24 +30,31 @@ def process_file(file_path: str, content_type: str) -> list[str]:
 
 def process_video(file_path: str) -> list[str]:
     """
-    Processes a video file, extracts audio, transcribes it, and chunks the text.
+    Processes a video file by extracting audio with ffmpeg and transcribing it.
+    This method is more memory-efficient than using MoviePy for large files.
     """
-    print(f"Processing video: {file_path}")
+    print(f"Processing video with ffmpeg: {file_path}")
     audio_path = None
     try:
-        with VideoFileClip(file_path) as video:
-            with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as temp_audio_file:
-                audio_path = temp_audio_file.name
-            
-            video.audio.write_audiofile(audio_path, logger=None)
+        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as temp_audio_file:
+            audio_path = temp_audio_file.name
 
-            print("Transcribing audio...")
-            model = whisper.load_model("tiny")
-            result = model.transcribe(audio_path, fp16=False)
-            full_text = result['text']
-            
-            print("Transcription complete. Chunking text...")
-            return chunk_text(full_text)
+        # Use ffmpeg to extract audio without loading video into memory
+        command = ["ffmpeg", "-i", file_path, "-q:a", "0", "-map", "a", audio_path, "-y"]
+        print("Extracting audio with ffmpeg...")
+        # Use capture_output=True to hide ffmpeg's noisy stdout/stderr from logs unless there's an error
+        result = subprocess.run(command, check=True, capture_output=True, text=True)
+        
+        print("Transcribing audio...")
+        model = whisper.load_model("tiny") 
+        result = model.transcribe(audio_path, fp16=False)
+        full_text = result['text']
+        
+        print("Transcription complete. Chunking text...")
+        return chunk_text(full_text)
+    except subprocess.CalledProcessError as e:
+        print(f"ffmpeg failed: {e.stderr}")
+        return []
     except Exception as e:
         print(f"Error processing video {file_path}: {e}")
         return []

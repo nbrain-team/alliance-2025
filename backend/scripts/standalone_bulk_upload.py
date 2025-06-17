@@ -10,7 +10,7 @@ not depend on the main FastAPI application code, to avoid local environment issu
 ----------------
 1. INSTALL DEPENDENCIES:
    This script requires specific packages. Install them directly using pip:
-   pip install pinecone-client==3.2.2 langchain-google-genai==1.0.6 openai-whisper==20231117 moviepy==2.0.0.dev2 python-dotenv==1.0.1
+   pip install pinecone-client langchain-google-genai openai-whisper python-dotenv
 
 2. SET UP YOUR .env FILE:
    In the same directory as this script (backend/scripts), create a file named '.env'.
@@ -34,17 +34,25 @@ import argparse
 import tempfile
 from dotenv import load_dotenv
 from pathlib import Path
+import subprocess
 
 # --- Dependency Check ---
 try:
     import whisper
-    from moviepy.editor import VideoFileClip
     from pinecone import Pinecone
     from langchain_google_genai import GoogleGenerativeAIEmbeddings
 except ImportError:
     print("One or more required libraries are not installed.")
     print("Please run the following command to install them:")
-    print("pip install pinecone-client==3.2.2 langchain-google-genai==1.0.6 openai-whisper==20231117 moviepy==2.0.0.dev2 python-dotenv==1.0.1")
+    print("pip install pinecone-client langchain-google-genai openai-whisper python-dotenv")
+    sys.exit(1)
+
+# --- FFMPEG Check ---
+try:
+    subprocess.run(["ffmpeg", "-version"], capture_output=True, check=True)
+except (subprocess.CalledProcessError, FileNotFoundError):
+    print("FATAL: ffmpeg is not installed or not found in your system's PATH.")
+    print("Please install ffmpeg. On macOS, you can use Homebrew: 'brew install ffmpeg'")
     sys.exit(1)
 
 
@@ -65,17 +73,22 @@ def process_and_transcribe_video(file_path: str) -> str:
     print(f"  - Processing video: {file_path}")
     audio_path = None
     try:
-        with VideoFileClip(file_path) as video:
-            with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as temp_audio_file:
-                audio_path = temp_audio_file.name
-            
-            video.audio.write_audiofile(audio_path, logger=None)
+        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as temp_audio_file:
+            audio_path = temp_audio_file.name
+        
+        # Use ffmpeg to extract audio without loading video into memory
+        command = ["ffmpeg", "-i", file_path, "-q:a", "0", "-map", "a", audio_path, "-y"]
+        print("    - Extracting audio with ffmpeg...")
+        subprocess.run(command, check=True, capture_output=True, text=True)
 
-            print("    - Transcribing audio with Whisper...")
-            model = whisper.load_model("tiny")
-            result = model.transcribe(audio_path, fp16=False)
-            print("    - Transcription complete.")
-            return result.get('text', '')
+        print("    - Transcribing audio with Whisper...")
+        model = whisper.load_model("tiny")
+        result = model.transcribe(audio_path, fp16=False)
+        print("    - Transcription complete.")
+        return result.get('text', '')
+    except subprocess.CalledProcessError as e:
+        print(f"    - ffmpeg failed: {e.stderr}")
+        return ""
     finally:
         if audio_path and os.path.exists(audio_path):
             os.remove(audio_path)
