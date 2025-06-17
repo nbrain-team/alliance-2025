@@ -42,7 +42,7 @@ def process_video(file_path: str) -> list[str]:
             video.audio.write_audiofile(audio_path, logger=None)
 
             print("Transcribing audio...")
-            model = whisper.load_model("base")
+            model = whisper.load_model("tiny")
             result = model.transcribe(audio_path, fp16=False)
             full_text = result['text']
             
