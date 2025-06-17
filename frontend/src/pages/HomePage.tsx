@@ -99,7 +99,11 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
                     ))}
                     {isLoading && messages[messages.length - 1]?.sender === 'user' && (
                          <div className="message-bubble ai">
-                            <span className="thinking-indicator"></span>
+                            <div className="thinking-indicator">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </div>
                          </div>
                     )}
                 </Box>
@@ -125,15 +129,16 @@ const STYLES = `
         margin-bottom: 1rem;
         word-wrap: break-word;
         white-space: pre-wrap;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
     }
     .message-bubble.user {
-        background-color: var(--accent-9);
+        background-color: #1c3d7a; /* Dark blue */
         color: white;
         margin-left: auto;
         border-bottom-right-radius: 4px;
     }
     .message-bubble.ai {
-        background-color: white;
+        background-color: #f0f4f8; /* Light grey-blue */
         color: var(--gray-12);
         margin-right: auto;
         border: 1px solid var(--gray-5);
@@ -160,16 +165,25 @@ const STYLES = `
         border-bottom: none;
     }
     .thinking-indicator {
-        width: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         height: 20px;
-        display: inline-block;
-        border-radius: 50%;
-        border: 3px solid var(--gray-5);
-        border-top-color: var(--accent-9);
-        animation: spin 1s ease-in-out infinite;
     }
-    @keyframes spin {
-        to { transform: rotate(360deg); }
+    .thinking-indicator span {
+        width: 8px;
+        height: 8px;
+        margin: 0 2px;
+        background-color: var(--gray-8);
+        border-radius: 50%;
+        display: inline-block;
+        animation: bounce 1.4s infinite ease-in-out both;
+    }
+    .thinking-indicator span:nth-child(1) { animation-delay: -0.32s; }
+    .thinking-indicator span:nth-child(2) { animation-delay: -0.16s; }
+    @keyframes bounce {
+      0%, 80%, 100% { transform: scale(0); }
+      40% { transform: scale(1.0); }
     }
 `;
 
