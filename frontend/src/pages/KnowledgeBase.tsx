@@ -174,8 +174,23 @@ const KnowledgeBase = () => {
                     <div className="upload-area">
                         {/* File Upload Form */}
                         <form onSubmit={handleUploadSubmit} className="form-group">
-                            <label htmlFor="file-input">Upload a Document</label>
-                            <input type="file" id="file-input" name="file-input" onChange={handleFileChange} key={file ? file.name : ''} />
+                            <label>Upload a Document</label>
+                            <div className="custom-file-input-container">
+                                <input 
+                                    type="file" 
+                                    id="file-input" 
+                                    name="file-input" 
+                                    onChange={handleFileChange} 
+                                    key={file ? file.name : ''} 
+                                    style={{ display: 'none' }} 
+                                />
+                                <label htmlFor="file-input" className="file-input-label">
+                                    Choose File
+                                </label>
+                                <span className="file-name-display">
+                                    {file ? file.name : 'No file chosen'}
+                                </span>
+                            </div>
                             <label htmlFor="doc-type-upload">Document Type</label>
                             <select id="doc-type-upload" value={docType} onChange={e => setDocType(e.target.value)}>
                                 <option value="brand_content">Brand Content</option>
@@ -325,6 +340,36 @@ const STYLES = `
     .form-group label {
         font-weight: 500;
         color: var(--text-primary);
+    }
+    .custom-file-input-container {
+        display: flex;
+        align-items: center;
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        box-sizing: border-box;
+        background-color: #fff;
+    }
+    .file-input-label {
+        padding: 0.6rem 1rem;
+        background-color: #f0f0f0;
+        cursor: pointer;
+        border-right: 1px solid var(--border);
+        white-space: nowrap;
+        border-top-left-radius: 7px;
+        border-bottom-left-radius: 7px;
+        transition: background-color 0.2s;
+    }
+    .file-input-label:hover {
+        background-color: #e0e0e0;
+    }
+    .file-name-display {
+        padding: 0.6rem 0.8rem;
+        flex-grow: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: #555;
     }
     .form-group input[type="text"], .form-group input[type="file"], .form-group select {
         width: 100%;
