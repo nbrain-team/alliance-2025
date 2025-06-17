@@ -1,7 +1,7 @@
 import { Box, Flex, Text, ScrollArea } from '@radix-ui/themes';
 import { CommandCenter } from '../components/CommandCenter';
 import { useState } from 'react';
-import React from 'react';
+import type { Dispatch, SetStateAction } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -11,8 +11,12 @@ interface Message {
   sender: 'user' | 'ai';
 }
 
-const HomePage = () => {
-    const [messages, setMessages] = useState<Message[]>([]);
+interface HomePageProps {
+    messages: Message[];
+    setMessages: Dispatch<SetStateAction<Message[]>>;
+}
+
+const HomePage = ({ messages, setMessages }: HomePageProps) => {
     const [isLoading, setIsLoading] = useState(false);
 
     const handleSendMessage = async (query: string) => {
