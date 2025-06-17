@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 class LLMHandler:
     def __init__(self):
         self.llm = ChatGoogleGenerativeAI(
-            model="gemini-pro",
+            model="gemini-1.5-flash",
             google_api_key=os.environ["GEMINI_API_KEY"]
         )
 
