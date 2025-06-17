@@ -8,7 +8,6 @@ import whisper
 import mimetypes
 import subprocess
 from .chunking import chunk_text
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 def process_file(file_path: str, content_type: str) -> list[str]:
     """
@@ -78,16 +77,4 @@ def process_text(file_path: str) -> list[str]:
         return []
 
 # NOTE: The PDF and DOCX processing functions have been removed for now
-# to resolve a local module dependency issue. They can be restored when needed.
-
-def chunk_text(text: str, chunk_size: int = 1000, overlap: int = 200) -> list[str]:
-    """
-    Splits a long text into smaller chunks with some overlap.
-    """
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=chunk_size,
-        chunk_overlap=overlap,
-        length_function=len,
-    )
-    chunks = text_splitter.split_text(text)
-    return chunks 
+# to resolve a local module dependency issue. They can be restored when needed. 
