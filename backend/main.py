@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 import os
 import shutil
+import sys
 from contextlib import asynccontextmanager
 from core.processor import process_file
 from core.pinecone_manager import PineconeManager
@@ -25,10 +26,36 @@ async def lifespan(app: FastAPI):
     Initializes expensive objects like database managers here.
     """
     print("Application startup: Initializing service managers...")
-    state["pinecone_manager"] = PineconeManager()
-    state["gcs_manager"] = GCSManager()
-    state["llm_handler"] = LLMHandler() # Initialize LLM Handler at startup
-    print("Application startup: Initialization complete.")
+    try:
+        # Explicitly check for each required environment variable
+        required_env_vars = [
+            "PINECONE_API_KEY",
+            "PINECONE_ENVIRONMENT",
+            "GEMINI_API_KEY",
+            "GCS_BUCKET_NAME",
+            "GOOGLE_APPLICATION_CREDENTIALS_BASE64",
+        ]
+        missing_vars = [v for v in required_env_vars if v not in os.environ]
+        if missing_vars:
+            error_msg = f"CRITICAL ERROR: Missing environment variables: {', '.join(missing_vars)}. Please set them in the Render secret group 'adtv-secrets'."
+            print(error_msg, file=sys.stderr)
+            raise RuntimeError(error_msg)
+
+        print("All required environment variables are present.")
+
+        state["pinecone_manager"] = PineconeManager()
+        print("PineconeManager initialized.")
+        state["gcs_manager"] = GCSManager()
+        print("GCSManager initialized.")
+        state["llm_handler"] = LLMHandler()
+        print("LLMHandler initialized.")
+
+        print("Application startup: Initialization complete.")
+    except Exception as e:
+        print(f"FATAL: An error occurred during application startup: {e}", file=sys.stderr)
+        # Re-raise the exception to ensure the application does not start in a faulty state
+        raise
+
     yield
     # Code to run on shutdown
     print("Application shutdown: Cleaning up resources.")
