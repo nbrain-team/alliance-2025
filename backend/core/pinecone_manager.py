@@ -1,5 +1,5 @@
 import os
-from pinecone import Pinecone, PodSpec
+from pinecone import Pinecone, ServerlessSpec
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_pinecone import Pinecone as LangchainPinecone
 from typing import List
@@ -30,8 +30,9 @@ class PineconeManager:
                 name=self.pinecone_index_name,
                 dimension=self.embedding_dimension,
                 metric='cosine',
-                spec=PodSpec(
-                    environment=self.pinecone_environment
+                spec=ServerlessSpec(
+                    cloud='aws',
+                    region=self.pinecone_environment
                 )
             )
         else: # If index exists, check dimension and recreate if it doesn't match
@@ -44,8 +45,9 @@ class PineconeManager:
                     name=self.pinecone_index_name,
                     dimension=self.embedding_dimension,
                     metric='cosine',
-                    spec=PodSpec(
-                        environment=self.pinecone_environment
+                    spec=ServerlessSpec(
+                        cloud='aws',
+                        region=self.pinecone_environment
                     )
                 )
         
