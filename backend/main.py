@@ -1,10 +1,11 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Form
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
 from pydantic import BaseModel
 from dotenv import load_dotenv
 import os
 import shutil
+from contextlib import asynccontextmanager
 from core.processor import process_file
 from core.pinecone_manager import PineconeManager
 from core.llm_handler import LLMHandler
@@ -12,10 +13,30 @@ from core.gcs_manager import GCSManager
 
 load_dotenv()
 
+# --- Application State and Lifespan Management ---
+# We store long-lived objects here to avoid re-initializing on every request.
+state = {}
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Manages application startup and shutdown events.
+    Initializes expensive objects like database managers here.
+    """
+    print("Application startup: Initializing service managers...")
+    state["pinecone_manager"] = PineconeManager()
+    state["gcs_manager"] = GCSManager()
+    print("Application startup: Initialization complete.")
+    yield
+    # Code to run on shutdown
+    print("Application shutdown: Cleaning up resources.")
+    state.clear()
+
 app = FastAPI(
     title="ADTV RAG API",
     description="API for ADTV's Retrieval-Augmented Generation platform.",
-    version="0.1.0"
+    version="0.1.0",
+    lifespan=lifespan
 )
 
 # --- CORS Configuration ---
@@ -48,7 +69,7 @@ async def generate_upload_url(request: GenerateUploadUrlRequest):
     Generates a pre-signed URL to upload a file directly to GCS.
     """
     try:
-        gcs_manager = GCSManager()
+        gcs_manager = state["gcs_manager"]
         url = gcs_manager.generate_upload_url(
             file_name=request.file_name,
             content_type=request.content_type
@@ -62,30 +83,46 @@ class NotifyUploadRequest(BaseModel):
     content_type: str
     doc_type: str
 
-@app.post("/notify-upload")
-async def notify_upload(request: NotifyUploadRequest):
+def process_and_index_file(file_name: str, content_type: str, doc_type: str):
     """
-    Notifies the server that a file has been uploaded to GCS,
-    so it can be processed and indexed.
+    This function runs in the background to process and index the file.
     """
-    temp_file_path = f"temp_{request.file_name}"
+    print(f"Background task started for: {file_name}")
+    temp_file_path = f"temp_{file_name}"
     try:
-        gcs_manager = GCSManager()
-        gcs_manager.download_to_temp_file(request.file_name, temp_file_path)
+        gcs_manager = state["gcs_manager"]
+        pinecone_manager = state["pinecone_manager"]
 
-        chunks = process_file(temp_file_path, request.content_type)
+        print(f"Downloading {file_name} from GCS...")
+        gcs_manager.download_to_temp_file(file_name, temp_file_path)
+        print(f"Processing {file_name}...")
+        chunks = process_file(temp_file_path, content_type)
 
-        pinecone_manager = PineconeManager()
-        metadata = {"source": request.file_name, "doc_type": request.doc_type}
+        print(f"Upserting {len(chunks)} chunks to Pinecone...")
+        metadata = {"source": file_name, "doc_type": doc_type}
         pinecone_manager.upsert_chunks(chunks, metadata)
-
-        return {"message": f"Successfully processed {request.file_name}"}
+        print(f"Successfully processed and indexed {file_name}")
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"Error processing {file_name} in background: {e}")
     finally:
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
+            print(f"Cleaned up temporary file: {temp_file_path}")
+
+@app.post("/notify-upload")
+async def notify_upload(request: NotifyUploadRequest, background_tasks: BackgroundTasks):
+    """
+    Notifies the server that a file has been uploaded to GCS.
+    This endpoint returns immediately and processing happens in the background.
+    """
+    background_tasks.add_task(
+        process_and_index_file,
+        file_name=request.file_name,
+        content_type=request.content_type,
+        doc_type=request.doc_type
+    )
+    return {"message": f"File {request.file_name} received. Processing has started in the background."}
 
 @app.get("/documents")
 async def get_documents():
@@ -93,7 +130,7 @@ async def get_documents():
     Retrieves a list of all documents from the vector database.
     """
     try:
-        pinecone_manager = PineconeManager()
+        pinecone_manager = state["pinecone_manager"]
         documents = pinecone_manager.list_documents()
         return documents
     except Exception as e:
@@ -105,9 +142,11 @@ async def delete_document(file_name: str):
     Deletes a document and all its associated vectors from Pinecone.
     """
     try:
-        pinecone_manager = PineconeManager()
+        pinecone_manager = state["pinecone_manager"]
         pinecone_manager.delete_document(file_name)
-        return {"message": f"Successfully deleted {file_name}"}
+        gcs_manager = state["gcs_manager"]
+        gcs_manager.delete_file(file_name)
+        return {"message": f"Successfully deleted {file_name} from all sources."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -118,7 +157,7 @@ async def query_documents(query: str = Form(...), file_names: Optional[List[str]
     Can be filtered by a list of file names.
     """
     try:
-        pinecone_manager = PineconeManager()
+        pinecone_manager = state["pinecone_manager"]
         context_chunks = pinecone_manager.query_index(query, file_names=file_names)
 
         llm_handler = LLMHandler()
