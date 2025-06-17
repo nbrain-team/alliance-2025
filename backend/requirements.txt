@@ -7,4 +7,5 @@ pinecone-client
 langchain-google-genai
 langchain-pinecone
 google-cloud-storage
-langchain 
+langchain
+python-multipart 
