@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { Link as RouterLink } from 'react-router-dom';
 
 // Define the structure for a message
 interface Message {
@@ -80,13 +81,16 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
 
     return (
         <Flex direction="column" style={{ height: '100vh', backgroundColor: 'var(--gray-1)' }}>
-            <Box style={{ 
+            <Flex justify="between" align="center" style={{ 
                 padding: '1rem', 
                 borderBottom: '1px solid var(--gray-4)',
                 backgroundColor: 'white'
             }}>
                 <Text size="5" weight="bold" style={{ color: 'var(--gray-12)' }}>ADTV AI Assistant</Text>
-            </Box>
+                <RouterLink to="/admin" style={{ textDecoration: 'none' }}>
+                    <Text size="2" style={{ color: 'var(--gray-11)', cursor: 'pointer' }}>Manage Knowledge Base</Text>
+                </RouterLink>
+            </Flex>
 
             <ScrollArea style={{ flex: 1, padding: '1rem' }}>
                 <Box style={{ maxWidth: '800px', margin: '0 auto' }}>
