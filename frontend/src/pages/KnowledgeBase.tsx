@@ -136,15 +136,8 @@ const KnowledgeBase = () => {
     
     const handleQuerySubmit = (event: React.FormEvent) => {
         event.preventDefault();
-        if (!query.trim()) {
-            alert("Please enter a question.");
-            return;
-        }
-        if (selectedDocs.length === 0) {
-            alert("Please select at least one document to query.");
-            return;
-        }
-        queryMutation.mutate({ query, file_names: selectedDocs });
+        if (!query.trim() || selectedDocs.length === 0) return;
+        queryMutation.mutate({ query: query, file_names: selectedDocs });
     };
 
     return (
@@ -182,7 +175,7 @@ const KnowledgeBase = () => {
                         {/* File Upload Form */}
                         <form onSubmit={handleUploadSubmit} className="form-group">
                             <label htmlFor="file-input">Upload a Document</label>
-                            <input type="file" id="file-input" onChange={handleFileChange} key={file ? file.name : ''} />
+                            <input type="file" id="file-input" name="file-input" onChange={handleFileChange} key={file ? file.name : ''} />
                             <label htmlFor="doc-type-upload">Document Type</label>
                             <select id="doc-type-upload" value={docType} onChange={e => setDocType(e.target.value)}>
                                 <option value="brand_content">Brand Content</option>

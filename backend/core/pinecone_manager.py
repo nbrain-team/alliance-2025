@@ -12,6 +12,10 @@ class PineconeManager:
         self.pinecone_index_name = os.getenv("PINECONE_INDEX_NAME")
         self.gemini_api_key = os.getenv("GEMINI_API_KEY")
 
+        # --- Define model and dimension ---
+        self.embedding_model_name = "models/embedding-001"
+        self.embedding_dimension = 768  # Gemini's embedding-001 model dimension
+
         # --- Validate that all credentials are set ---
         if not all([self.pinecone_api_key, self.pinecone_environment, self.pinecone_index_name, self.gemini_api_key]):
             raise ValueError("One or more required environment variables are not set.")
@@ -19,22 +23,37 @@ class PineconeManager:
         # --- Initialize Pinecone client (new method) ---
         self.pc = Pinecone(api_key=self.pinecone_api_key)
 
-        # --- Create index if it doesn't exist ---
+        # --- Create or update index ---
         if self.pinecone_index_name not in self.pc.list_indexes().names():
+            print(f"Creating new Pinecone index: '{self.pinecone_index_name}' with dimension {self.embedding_dimension}")
             self.pc.create_index(
                 name=self.pinecone_index_name,
-                dimension=768,  # Gemini's embedding model dimension
+                dimension=self.embedding_dimension,
                 metric='cosine',
                 spec=PodSpec(
                     environment=self.pinecone_environment
                 )
             )
+        else: # If index exists, check dimension and recreate if it doesn't match
+            index_description = self.pc.describe_index(self.pinecone_index_name)
+            if index_description.dimension != self.embedding_dimension:
+                print(f"Index '{self.pinecone_index_name}' has dimension {index_description.dimension}, but code requires {self.embedding_dimension}.")
+                print("Deleting and recreating index to fix mismatch.")
+                self.pc.delete_index(self.pinecone_index_name)
+                self.pc.create_index(
+                    name=self.pinecone_index_name,
+                    dimension=self.embedding_dimension,
+                    metric='cosine',
+                    spec=PodSpec(
+                        environment=self.pinecone_environment
+                    )
+                )
         
         self.index = self.pc.Index(self.pinecone_index_name)
 
         # --- Initialize Google Gemini embeddings model ---
         self.embeddings = GoogleGenerativeAIEmbeddings(
-            model="models/embedding-001",
+            model=self.embedding_model_name,
             google_api_key=self.gemini_api_key
         )
 
@@ -64,7 +83,7 @@ class PineconeManager:
         try:
             # Query for a vector of zeros to get a broad sample of documents
             results = self.index.query(
-                vector=[0] * 768,  # Gemini embedding dimension
+                vector=[0] * self.embedding_dimension,
                 top_k=1000,
                 include_metadata=True
             )
