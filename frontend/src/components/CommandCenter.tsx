@@ -28,8 +28,18 @@ export const CommandCenter = ({ onSend, isLoading }: CommandCenterProps) => {
 
     return (
         <Flex gap="3" align="center">
-            {/* --- Left-side Icons --- */}
-            <Flex gap="2">
+            {/* --- Text Input --- */}
+            <TextField.Root
+                placeholder="Ask a question..."
+                style={{ flexGrow: 1 }}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                disabled={isLoading}
+            />
+
+            {/* --- Right-side Icons --- */}
+            <Flex gap="3">
                 <IconButton variant="ghost" onClick={() => alert('Icon 1 Clicked!')} style={{ cursor: 'pointer' }}>
                     <img src="/new-icons/3.png" alt="Icon 1" style={{ width: 20, height: 20 }}/>
                 </IconButton>
@@ -40,16 +50,6 @@ export const CommandCenter = ({ onSend, isLoading }: CommandCenterProps) => {
                     <img src="/new-icons/6.png" alt="Icon 3" style={{ width: 20, height: 20 }}/>
                 </IconButton>
             </Flex>
-
-            {/* --- Text Input --- */}
-            <TextField.Root
-                placeholder="Ask a question..."
-                style={{ flexGrow: 1 }}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                disabled={isLoading}
-            />
 
             {/* --- Send Button --- */}
             <IconButton
