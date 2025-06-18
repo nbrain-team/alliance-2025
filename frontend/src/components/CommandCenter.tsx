@@ -48,24 +48,24 @@ export const CommandCenter = ({ onSend, isLoading }: CommandCenterProps) => {
             />
 
             {/* --- Right-side Icons & Popups --- */}
-            <Flex gap="4">
+            <Flex gap="5" align="center">
                 <div style={{ position: 'relative' }}>
-                    <IconButton variant="ghost" onClick={() => togglePopup('sources')} style={{ cursor: 'pointer' }}>
-                        <Share2Icon width={18} height={18} />
+                    <IconButton variant="ghost" onClick={() => togglePopup('sources')} style={{ cursor: 'pointer', color: 'var(--gray-11)' }}>
+                        <Share2Icon width={22} height={22} />
                     </IconButton>
                     {activePopup === 'sources' && <DataSourcesPopup />}
                 </div>
                 
                 <div style={{ position: 'relative' }}>
-                    <IconButton variant="ghost" onClick={() => togglePopup('date')} style={{ cursor: 'pointer' }}>
-                        <CalendarIcon width={18} height={18} />
+                    <IconButton variant="ghost" onClick={() => togglePopup('date')} style={{ cursor: 'pointer', color: 'var(--gray-11)' }}>
+                        <CalendarIcon width={22} height={22} />
                     </IconButton>
                     {activePopup === 'date' && <DateSelectionPopup />}
                 </div>
 
                 <div style={{ position: 'relative' }}>
-                    <IconButton variant="ghost" onClick={() => togglePopup('agents')} style={{ cursor: 'pointer' }}>
-                        <LayersIcon width={18} height={18} />
+                    <IconButton variant="ghost" onClick={() => togglePopup('agents')} style={{ cursor: 'pointer', color: 'var(--gray-11)' }}>
+                        <LayersIcon width={22} height={22} />
                     </IconButton>
                     {activePopup === 'agents' && <TemplateAgentsPopup />}
                 </div>
@@ -74,6 +74,7 @@ export const CommandCenter = ({ onSend, isLoading }: CommandCenterProps) => {
             {/* --- Send Button --- */}
             <IconButton
                 color="blue"
+                radius="full"
                 onClick={handleSendClick}
                 disabled={isLoading || input.trim() === ''}
                 style={{ cursor: 'pointer' }}
