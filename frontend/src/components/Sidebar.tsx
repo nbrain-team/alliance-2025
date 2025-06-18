@@ -32,11 +32,9 @@ export const Sidebar = ({ onNewChat }: { onNewChat: () => void }) => {
             <Flex direction="column" align="center" gap="4" style={{ marginTop: '125px' }}>
                 <button className="sidebar-icon" title="New Chat" onClick={handleNewChatClick}>
                     <img src="/new-icons/13.png" alt="New Chat" />
-                    <span>New Chat</span>
                 </button>
                 <button className="sidebar-icon" title="Knowledge Base" onClick={() => navigate('/knowledge-base')}>
                     <img src="/new-icons/2.png" alt="Upload" />
-                    <span>Upload</span>
                 </button>
                 <button className="sidebar-icon" title="Icon 7">
                     <img src="/new-icons/7.png" alt="Icon 7" />
@@ -45,21 +43,6 @@ export const Sidebar = ({ onNewChat }: { onNewChat: () => void }) => {
                     <img src="/new-icons/3.png" alt="Icon 3" />
                 </button>
             </Flex>
-
-            <textarea 
-                placeholder="Ask a question..."
-                style={{
-                    marginTop: 'auto',
-                    width: '80%',
-                    height: '100px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border)',
-                    padding: '8px',
-                    backgroundColor: 'var(--input-bg)',
-                    color: 'var(--text-color)',
-                    resize: 'none'
-                }}
-            />
         </Flex>
     );
 }; 
