@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { Flex, IconButton, TextField } from '@radix-ui/themes';
 import { PaperPlaneIcon } from '@radix-ui/react-icons';
+import { DataSourcesPopup } from './DataSourcesPopup';
+import { DateSelectionPopup } from './DateSelectionPopup';
+import { TemplateAgentsPopup } from './TemplateAgentsPopup';
 
 interface CommandCenterProps {
   onSend: (query: string) => void;
@@ -9,6 +12,7 @@ interface CommandCenterProps {
 
 export const CommandCenter = ({ onSend, isLoading }: CommandCenterProps) => {
     const [input, setInput] = useState('');
+    const [activePopup, setActivePopup] = useState<string | null>(null);
 
     const handleSendClick = () => {
         if (input.trim()) {
@@ -26,11 +30,16 @@ export const CommandCenter = ({ onSend, isLoading }: CommandCenterProps) => {
         }
     };
 
+    const togglePopup = (popupName: string) => {
+        setActivePopup(prev => (prev === popupName ? null : popupName));
+    };
+
+
     return (
-        <Flex gap="3" align="center">
+        <Flex gap="3" align="center" style={{ position: 'relative' }}>
             {/* --- Text Input --- */}
             <TextField.Root
-                placeholder="Ask a question..."
+                placeholder="Ask a question or type a command..."
                 style={{ flexGrow: 1 }}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -38,17 +47,28 @@ export const CommandCenter = ({ onSend, isLoading }: CommandCenterProps) => {
                 disabled={isLoading}
             />
 
-            {/* --- Right-side Icons --- */}
+            {/* --- Right-side Icons & Popups --- */}
             <Flex gap="3">
-                <IconButton variant="ghost" onClick={() => alert('Icon 1 Clicked!')} style={{ cursor: 'pointer' }}>
-                    <img src="/new-icons/3.png" alt="Icon 1" style={{ width: 20, height: 20 }}/>
-                </IconButton>
-                <IconButton variant="ghost" onClick={() => alert('Icon 2 Clicked!')} style={{ cursor: 'pointer' }}>
-                    <img src="/new-icons/4.png" alt="Icon 2" style={{ width: 20, height: 20 }}/>
-                </IconButton>
-                <IconButton variant="ghost" onClick={() => alert('Icon 3 Clicked!')} style={{ cursor: 'pointer' }}>
-                    <img src="/new-icons/6.png" alt="Icon 3" style={{ width: 20, height: 20 }}/>
-                </IconButton>
+                <div style={{ position: 'relative' }}>
+                    <IconButton variant="ghost" onClick={() => togglePopup('sources')} style={{ cursor: 'pointer' }}>
+                        <img src="/new-icons/3.png" alt="Data Sources" style={{ width: 20, height: 20 }}/>
+                    </IconButton>
+                    {activePopup === 'sources' && <DataSourcesPopup />}
+                </div>
+                
+                <div style={{ position: 'relative' }}>
+                    <IconButton variant="ghost" onClick={() => togglePopup('date')} style={{ cursor: 'pointer' }}>
+                        <img src="/new-icons/4.png" alt="Date Selection" style={{ width: 20, height: 20 }}/>
+                    </IconButton>
+                    {activePopup === 'date' && <DateSelectionPopup />}
+                </div>
+
+                <div style={{ position: 'relative' }}>
+                    <IconButton variant="ghost" onClick={() => togglePopup('agents')} style={{ cursor: 'pointer' }}>
+                        <img src="/new-icons/6.png" alt="Template Agents" style={{ width: 20, height: 20 }}/>
+                    </IconButton>
+                    {activePopup === 'agents' && <TemplateAgentsPopup />}
+                </div>
             </Flex>
 
             {/* --- Send Button --- */}
