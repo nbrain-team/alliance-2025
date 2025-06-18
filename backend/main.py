@@ -116,28 +116,37 @@ def process_and_index_file(file_name: str, content_type: str, doc_type: str):
     """
     This function runs in the background to process and index the file.
     """
-    print(f"Background task started for: {file_name}")
+    print(f"BACKGROUND_TASK_STARTED for: {file_name}, content_type: {content_type}")
     temp_file_path = f"temp_{file_name}"
     try:
         gcs_manager = state["gcs_manager"]
         pinecone_manager = state["pinecone_manager"]
 
-        print(f"Downloading {file_name} from GCS...")
+        print(f"BACKGROUND_TASK_STEP: Downloading {file_name} from GCS...")
         gcs_manager.download_to_temp_file(file_name, temp_file_path)
-        print(f"Processing {file_name}...")
-        chunks = process_file(temp_file_path, content_type)
+        print(f"BACKGROUND_TASK_STEP: Download complete. File at {temp_file_path}")
 
-        print(f"Upserting {len(chunks)} chunks to Pinecone...")
+        print(f"BACKGROUND_TASK_STEP: Processing {file_name} with content_type {content_type}...")
+        chunks = process_file(temp_file_path, content_type)
+        print(f"BACKGROUND_TASK_STEP: Processing complete. Got {len(chunks)} chunks.")
+
+        if not chunks:
+            print(f"BACKGROUND_TASK_WARNING: No chunks were generated for {file_name}. Aborting upsert.")
+            return
+
+        print(f"BACKGROUND_TASK_STEP: Upserting {len(chunks)} chunks to Pinecone...")
         metadata = {"source": file_name, "doc_type": doc_type}
         pinecone_manager.upsert_chunks(chunks, metadata)
-        print(f"Successfully processed and indexed {file_name}")
+        print(f"BACKGROUND_TASK_SUCCESS: Successfully processed and indexed {file_name}")
 
     except Exception as e:
-        print(f"Error processing {file_name} in background: {e}")
+        import traceback
+        print(f"BACKGROUND_TASK_ERROR: Error processing {file_name} in background: {repr(e)}")
+        traceback.print_exc()
     finally:
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
-            print(f"Cleaned up temporary file: {temp_file_path}")
+            print(f"BACKGROUND_TASK_FINALLY: Cleaned up temporary file: {temp_file_path}")
 
 @app.post("/notify-upload")
 async def notify_upload(request: NotifyUploadRequest, background_tasks: BackgroundTasks):
