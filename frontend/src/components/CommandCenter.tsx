@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Flex, IconButton, TextField } from '@radix-ui/themes';
-import { PaperPlaneIcon } from '@radix-ui/react-icons';
+import { ArrowRightIcon, Share2Icon, CalendarIcon, LayersIcon } from '@radix-ui/react-icons';
 import { DataSourcesPopup } from './DataSourcesPopup';
 import { DateSelectionPopup } from './DateSelectionPopup';
 import { TemplateAgentsPopup } from './TemplateAgentsPopup';
@@ -48,24 +48,24 @@ export const CommandCenter = ({ onSend, isLoading }: CommandCenterProps) => {
             />
 
             {/* --- Right-side Icons & Popups --- */}
-            <Flex gap="3">
+            <Flex gap="4">
                 <div style={{ position: 'relative' }}>
                     <IconButton variant="ghost" onClick={() => togglePopup('sources')} style={{ cursor: 'pointer' }}>
-                        <img src="/new-icons/3.png" alt="Data Sources" style={{ width: 20, height: 20 }}/>
+                        <Share2Icon width={18} height={18} />
                     </IconButton>
                     {activePopup === 'sources' && <DataSourcesPopup />}
                 </div>
                 
                 <div style={{ position: 'relative' }}>
                     <IconButton variant="ghost" onClick={() => togglePopup('date')} style={{ cursor: 'pointer' }}>
-                        <img src="/new-icons/4.png" alt="Date Selection" style={{ width: 20, height: 20 }}/>
+                        <CalendarIcon width={18} height={18} />
                     </IconButton>
                     {activePopup === 'date' && <DateSelectionPopup />}
                 </div>
 
                 <div style={{ position: 'relative' }}>
                     <IconButton variant="ghost" onClick={() => togglePopup('agents')} style={{ cursor: 'pointer' }}>
-                        <img src="/new-icons/6.png" alt="Template Agents" style={{ width: 20, height: 20 }}/>
+                        <LayersIcon width={18} height={18} />
                     </IconButton>
                     {activePopup === 'agents' && <TemplateAgentsPopup />}
                 </div>
@@ -73,11 +73,12 @@ export const CommandCenter = ({ onSend, isLoading }: CommandCenterProps) => {
 
             {/* --- Send Button --- */}
             <IconButton
+                color="blue"
                 onClick={handleSendClick}
                 disabled={isLoading || input.trim() === ''}
                 style={{ cursor: 'pointer' }}
             >
-                <PaperPlaneIcon width="18" height="18" />
+                <ArrowRightIcon width="18" height="18" />
             </IconButton>
         </Flex>
     );
