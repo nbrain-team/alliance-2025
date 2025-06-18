@@ -1,6 +1,6 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, Form, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, Response
 from typing import List, Optional, AsyncGenerator
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -80,6 +80,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.options("/{rest_of_path:path}")
+async def preflight_handler(rest_of_path: str) -> Response:
+    """
+    Handles all CORS pre-flight OPTIONS requests.
+    This is a robust way to ensure that our gateway doesn't
+    time out and return a 502 error.
+    """
+    return Response(status_code=200)
 
 @app.get("/")
 def read_root():
