@@ -1,6 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import HomePage from './pages/HomePage';
-import AdminPage from './pages/AdminPage';
+import KnowledgeBase from './pages/KnowledgeBase';
 import { MainLayout } from './components/MainLayout';
 import { useState } from 'react';
 
@@ -19,7 +19,7 @@ function App() {
       <MainLayout onNewChat={() => setMessages([])}>
         <Routes>
           <Route path="/" element={<HomePage messages={messages} setMessages={setMessages} />} />
-          <Route path="/admin" element={<AdminPage />} />
+          <Route path="/knowledge-base" element={<KnowledgeBase />} />
         </Routes>
       </MainLayout>
     </Router>
