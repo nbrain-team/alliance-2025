@@ -4,7 +4,6 @@ import { useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Link as RouterLink } from 'react-router-dom';
 
 // Define the structure for a message
 interface Message {
