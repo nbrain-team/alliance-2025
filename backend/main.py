@@ -8,7 +8,6 @@ import os
 import shutil
 import sys
 from contextlib import asynccontextmanager
-from enum import Enum
 from core.processor import process_file
 from core.pinecone_manager import PineconeManager
 from core.llm_handler import LLMHandler
@@ -93,13 +92,6 @@ class GenerateUploadUrlRequest(BaseModel):
     file_name: str
     content_type: str
 
-class DocType(str, Enum):
-    sales_marketing = "sales_marketing"
-    q_a = "q_a"
-    operations = "operations"
-    time_seasonal = "time_seasonal"
-    other = "other"
-
 @app.post("/generate-upload-url")
 async def generate_upload_url(request: GenerateUploadUrlRequest):
     """
@@ -118,7 +110,7 @@ async def generate_upload_url(request: GenerateUploadUrlRequest):
 class NotifyUploadRequest(BaseModel):
     file_name: str
     content_type: str
-    doc_type: DocType
+    doc_type: str
 
 def process_and_index_file(file_name: str, content_type: str, doc_type: str):
     """
@@ -157,7 +149,7 @@ async def notify_upload(request: NotifyUploadRequest, background_tasks: Backgrou
         process_and_index_file,
         file_name=request.file_name,
         content_type=request.content_type,
-        doc_type=request.doc_type.value
+        doc_type=request.doc_type
     )
     return {"message": f"File {request.file_name} received. Processing has started in the background."}
 
