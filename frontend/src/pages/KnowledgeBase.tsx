@@ -15,7 +15,7 @@ interface Document {
 const KnowledgeBase = () => {
     const queryClient = useQueryClient();
     const [file, setFile] = useState<File | null>(null);
-    const [docType, setDocType] = useState('brand_content');
+    const [docType, setDocType] = useState('sales_marketing');
     const [url, setUrl] = useState('');
     const [selectedDocs, setSelectedDocs] = useState<string[]>([]);
     const [query, setQuery] = useState('');
@@ -193,9 +193,10 @@ const KnowledgeBase = () => {
                             </div>
                             <label htmlFor="doc-type-upload">Document Type</label>
                             <select id="doc-type-upload" value={docType} onChange={e => setDocType(e.target.value)}>
-                                <option value="brand_content">Brand Content</option>
-                                <option value="industry_data">Industry Data</option>
-                                <option value="sop_best_practices">SOP Documents / Best Practices</option>
+                                <option value="sales_marketing">Sales & Marketing</option>
+                                <option value="q_a">Question & Answers</option>
+                                <option value="operations">Operations</option>
+                                <option value="time_seasonal">Time & Seasonal Content</option>
                                 <option value="other">Other</option>
                             </select>
                             <button type="submit" className="submit-btn" disabled={uploadMutation.isPending || !!uploadStatus}>
@@ -209,9 +210,10 @@ const KnowledgeBase = () => {
                             <input type="text" id="url-input" value={url} onChange={e => setUrl(e.target.value)} placeholder="https://example.com" />
                             <label htmlFor="doc-type-crawl">Document Type</label>
                             <select id="doc-type-crawl">
-                                <option value="brand_content">Brand Content</option>
-                                <option value="industry_data">Industry Data</option>
-                                <option value="sop_best_practices">SOP Documents / Best Practices</option>
+                                <option value="sales_marketing">Sales & Marketing</option>
+                                <option value="q_a">Question & Answers</option>
+                                <option value="operations">Operations</option>
+                                <option value="time_seasonal">Time & Seasonal Content</option>
                                 <option value="other">Other</option>
                             </select>
                             <button type="submit" className="submit-btn" disabled>Crawl URL</button>
