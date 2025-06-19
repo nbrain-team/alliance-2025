@@ -34,7 +34,7 @@ export const Sidebar = ({ onNewChat }: { onNewChat: () => void }) => {
                     <img src="/new-icons/13.png" alt="New Chat" />
                 </button>
                 <button className="sidebar-icon" title="Knowledge Base" onClick={() => navigate('/knowledge-base')}>
-                    <img src="/new-icons/2.png" alt="Upload" />
+                    <img src="/new-icons/4.png" alt="Upload" />
                 </button>
                 <button className="sidebar-icon" title="Icon 7">
                     <img src="/new-icons/7.png" alt="Icon 7" />

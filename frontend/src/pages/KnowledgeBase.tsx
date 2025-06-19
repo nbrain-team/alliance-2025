@@ -188,49 +188,51 @@ const KnowledgeBase = () => {
                 <section className="management-section">
                     <h2>Add to Knowledge Base</h2>
                     <form onSubmit={handleSubmit} className="upload-area">
-                        <div className="form-group">
-                            <label htmlFor="upload-type-select">Upload Type</label>
-                            <select 
-                                id="upload-type-select"
-                                value={uploadType} 
-                                onChange={e => setUploadType(e.target.value as UploadType)}
-                            >
-                                <option value="files">Upload Files (.txt, .pdf, .docx)</option>
-                                <option value="urls">Crawl URLs</option>
-                            </select>
-                        </div>
+                        <div className="upload-inputs">
+                            <div className="form-group">
+                                <label htmlFor="upload-type-select">Upload Type</label>
+                                <select 
+                                    id="upload-type-select"
+                                    value={uploadType} 
+                                    onChange={e => setUploadType(e.target.value as UploadType)}
+                                >
+                                    <option value="files">Upload Files (.txt, .pdf, .docx)</option>
+                                    <option value="urls">Crawl URLs</option>
+                                </select>
+                            </div>
 
-                        {uploadType === 'files' ? (
-                            <div className="form-group">
-                                <label>Select Files</label>
-                                <div className="custom-file-input-container">
-                                    <input 
-                                        type="file" 
-                                        id="file-input" 
-                                        multiple
-                                        onChange={handleFileChange} 
-                                        style={{ display: 'none' }} 
-                                    />
-                                    <label htmlFor="file-input" className="file-input-label">
-                                        Choose Files
-                                    </label>
-                                    <span className="file-name-display">
-                                        {files ? `${files.length} file(s) chosen` : 'No files chosen'}
-                                    </span>
+                            {uploadType === 'files' ? (
+                                <div className="form-group">
+                                    <label>Select Files</label>
+                                    <div className="custom-file-input-container">
+                                        <input 
+                                            type="file" 
+                                            id="file-input" 
+                                            multiple
+                                            onChange={handleFileChange} 
+                                            style={{ display: 'none' }} 
+                                        />
+                                        <label htmlFor="file-input" className="file-input-label">
+                                            Choose Files
+                                        </label>
+                                        <span className="file-name-display">
+                                            {files ? `${files.length} file(s) chosen` : 'No files chosen'}
+                                        </span>
+                                    </div>
                                 </div>
-                            </div>
-                        ) : (
-                            <div className="form-group">
-                                <label htmlFor="url-input">Enter URLs (one per line)</label>
-                                <textarea 
-                                    id="url-input"
-                                    value={urls} 
-                                    onChange={e => setUrls(e.target.value)} 
-                                    placeholder="https://example.com/page1&#10;https://anothersite.com/article"
-                                    rows={4}
-                                />
-                            </div>
-                        )}
+                            ) : (
+                                <div className="form-group">
+                                    <label htmlFor="url-input">Enter URLs (one per line)</label>
+                                    <textarea 
+                                        id="url-input"
+                                        value={urls} 
+                                        onChange={e => setUrls(e.target.value)} 
+                                        placeholder="https://example.com/page1&#10;https://anothersite.com/article"
+                                        rows={4}
+                                    />
+                                </div>
+                            )}
+                        </div>
                         
                         <div className="form-group">
                             <button type="submit" className="submit-btn" disabled={isUploading}>
@@ -388,6 +390,11 @@ const STYLES = `
         margin-bottom: 1.5rem;
     }
     .upload-area {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+    .upload-inputs {
         display: flex;
         gap: 2rem;
         align-items: flex-start;
