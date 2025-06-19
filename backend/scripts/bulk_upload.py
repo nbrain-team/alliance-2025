@@ -1,84 +1,106 @@
 import os
-import sys
+import requests
 import argparse
+import time
 from dotenv import load_dotenv
-from pathlib import Path
 
-# --- Add project root to Python path ---
-# This allows us to import from the 'core' module.
-project_root = Path(__file__).resolve().parent.parent
-sys.path.append(str(project_root))
-# --- Load Environment Variables ---
-# Assumes a .env file exists in the 'backend' directory
-load_dotenv(dotenv_path=project_root / ".env")
+# --- Configuration ---
+# Load environment variables from a .env file in the parent directory
+dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
+load_dotenv(dotenv_path=dotenv_path)
 
-from core.processor import process_file
-from core.pinecone_manager import PineconeManager
+# Get the backend URL from environment variables, with a default for local dev
+API_BASE_URL = os.environ.get("VITE_API_BASE_URL", "http://localhost:10000")
 
-# --- Supported Video Formats ---
-VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv", ".webm"}
-
-def bulk_upload(directory_path: str, doc_type: str):
+def upload_file(file_path: str, doc_type: str = "transcription"):
     """
-    Scans a directory for video files, processes them, and uploads them to Pinecone.
+    Manages the three-step upload process for a single file.
     """
-    print("--- Starting Bulk Upload Process ---")
+    file_name = os.path.basename(file_path)
+    content_type = "text/plain"
     
     try:
-        # Initialize Pinecone Manager once
-        print("Initializing Pinecone connection...")
-        pinecone_manager = PineconeManager()
-        print("Pinecone connection successful.")
-    except Exception as e:
-        print(f"FATAL: Could not connect to Pinecone. Please check your .env file. Error: {e}")
+        # --- Step 1: Get a pre-signed URL from our backend ---
+        print(f"   [1/3] Requesting upload URL for {file_name}...")
+        presigned_url_response = requests.post(
+            f"{API_BASE_URL}/generate-upload-url",
+            json={"file_name": file_name, "content_type": content_type}
+        )
+        presigned_url_response.raise_for_status()
+        upload_data = presigned_url_response.json()
+        upload_url = upload_data['upload_url']
+        
+        # --- Step 2: Upload the actual file to Google Cloud Storage ---
+        print(f"   [2/3] Uploading file to Google Cloud Storage...")
+        with open(file_path, 'rb') as f:
+            upload_response = requests.put(
+                upload_url,
+                data=f,
+                headers={'Content-Type': content_type}
+            )
+            upload_response.raise_for_status()
+            
+        # --- Step 3: Notify our backend that the upload is complete ---
+        print(f"   [3/3] Notifying server to process the file...")
+        notify_response = requests.post(
+            f"{API_BASE_URL}/notify-upload",
+            json={
+                "file_name": file_name,
+                "content_type": content_type,
+                "doc_type": doc_type
+            }
+        )
+        notify_response.raise_for_status()
+        
+        print(f"✅ Successfully initiated processing for {file_name}\n")
+        return True
+
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Error uploading {file_name}: {e}")
+        if e.response:
+            print(f"    Response: {e.response.text}")
+        return False
+
+def main():
+    parser = argparse.ArgumentParser(description="Bulk upload text files to the ADTV Knowledge Base.")
+    parser.add_argument("folder_path", type=str, help="The full path to the folder containing the transcription files.")
+    args = parser.parse_args()
+
+    folder_path = os.path.expanduser(args.folder_path)
+
+    if not os.path.isdir(folder_path):
+        print(f"Error: Folder not found at '{folder_path}'")
         return
 
-    video_files = [p for p in Path(directory_path).rglob('*') if p.suffix.lower() in VIDEO_EXTENSIONS]
-
-    if not video_files:
-        print(f"No video files found in '{directory_path}'. Please check the path and file extensions.")
+    print(f"Starting bulk upload from folder: {folder_path}")
+    print(f"Targeting API server: {API_BASE_URL}\n")
+    
+    files_to_upload = [f for f in os.listdir(folder_path) if f.endswith('.txt')]
+    total_files = len(files_to_upload)
+    
+    if total_files == 0:
+        print("No .txt files found in the specified folder.")
         return
 
-    total_files = len(video_files)
-    print(f"Found {total_files} video file(s) to process.")
-    print("-" * 20)
+    successful_uploads = 0
+    failed_uploads = 0
 
-    for i, file_path in enumerate(video_files):
-        file_name = file_path.name
-        print(f"Processing file {i + 1}/{total_files}: {file_name}")
+    for i, file_name in enumerate(files_to_upload):
+        print(f"--- Processing file {i+1} of {total_files}: {file_name} ---")
+        file_path = os.path.join(folder_path, file_name)
+        
+        if upload_file(file_path):
+            successful_uploads += 1
+        else:
+            failed_uploads += 1
+        
+        # Add a small delay to avoid overwhelming the server
+        time.sleep(1) 
 
-        try:
-            # 1. Process the local file to get text chunks
-            # We determine the content type from the file extension.
-            content_type = f"video/{file_path.suffix.lower().strip('.')}"
-            chunks = process_file(str(file_path), content_type)
-
-            if not chunks:
-                print(f"Warning: No text chunks were extracted from {file_name}. Skipping.")
-                continue
-
-            # 2. Define metadata
-            metadata = {"source": file_name, "doc_type": doc_type}
-            print(f"Extracted {len(chunks)} text chunks. Upserting to Pinecone...")
-
-            # 3. Upsert chunks to Pinecone
-            pinecone_manager.upsert_chunks(chunks, metadata)
-            print(f"Successfully processed and uploaded: {file_name}")
-            print("-" * 20)
-
-        except Exception as e:
-            print(f"ERROR: Failed to process {file_name}. Reason: {e}")
-            print("Continuing to the next file...")
-            print("-" * 20)
-            continue
-
-    print("--- Bulk Upload Process Complete ---")
+    print("\n--- Bulk Upload Complete ---")
+    print(f"Successfully processed: {successful_uploads}")
+    print(f"Failed: {failed_uploads}")
+    print("----------------------------")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Bulk upload video files to the ADTV Knowledge Base.")
-    parser.add_argument("directory", type=str, help="The path to the directory containing your video files.")
-    parser.add_argument("--doc_type", type=str, default="Bulk Video Upload", help="The 'Document Type' to assign to these videos.")
-    
-    args = parser.parse_args()
-    
-    bulk_upload(args.directory, args.doc_type) 
+    main() 
