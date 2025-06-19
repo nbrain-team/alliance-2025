@@ -86,7 +86,7 @@ def delete_document(file_name: str):
     index = _get_pinecone_index()
     index.delete(filter={"source": file_name})
 
-def query_index(query: str, top_k: int = 5, file_names: List[str] = None):
+def query_index(query: str, top_k: int = 10, file_names: List[str] = None):
     """
     Queries the index with a question and returns the most relevant text chunks
     and their source documents.
