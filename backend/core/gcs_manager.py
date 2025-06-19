@@ -8,16 +8,15 @@ import json
 class GCSManager:
     def __init__(self):
         self.bucket_name = os.environ.get("GCS_BUCKET_NAME")
+        credentials_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+
         if not self.bucket_name:
             raise ValueError("GCS_BUCKET_NAME environment variable not set.")
+        if not credentials_path:
+            raise ValueError("GOOGLE_APPLICATION_CREDENTIALS environment variable not set.")
 
-        # The google-cloud-storage library automatically looks for the
-        # GOOGLE_APPLICATION_CREDENTIALS environment variable, which should be
-        # set to the path of the service account key file provided by Render.
-        if "GOOGLE_APPLICATION_CREDENTIALS" not in os.environ:
-             raise ValueError("GOOGLE_APPLICATION_CREDENTIALS environment variable is not set. It should point to the secret file path.")
-
-        self.storage_client = storage.Client()
+        # Explicitly use the service account credentials from the file path
+        self.storage_client = storage.Client.from_service_account_json(credentials_path)
         self.bucket = self.storage_client.bucket(self.bucket_name)
 
     def generate_upload_url(self, file_name: str, content_type: str) -> str:
