@@ -7,7 +7,6 @@ import remarkGfm from 'remark-gfm';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { PersonIcon } from '@radix-ui/react-icons';
-import api from '../api';
 
 // Define the structure for a message
 interface Message {
