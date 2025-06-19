@@ -108,12 +108,4 @@ def query_index(query: str, top_k: int = 10, file_names: List[str] = None):
         filter=filter_metadata
     )
     
-    matches = results.get('matches', [])
-    chunks = [match['metadata']['text'] for match in matches if 'text' in match.get('metadata', {})]
-    
-    sources = set()
-    for match in matches:
-        if 'source' in match.get('metadata', {}):
-            sources.add(match['metadata']['source'])
-            
-    return {"chunks": chunks, "sources": list(sources)} 
+    return results.get('matches', []) 

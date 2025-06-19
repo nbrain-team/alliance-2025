@@ -142,17 +142,18 @@ async def chat_stream(req: ChatRequest):
     async def stream_generator() -> AsyncGenerator[str, None]:
         try:
             # Query Pinecone for relevant context using the user's query and selected files
-            query_result = pinecone_manager.query_index(
+            matches = pinecone_manager.query_index(
                 req.query, file_names=req.file_names if req.file_names else None
             )
-            context_chunks = query_result.get("chunks", [])
-            source_documents = query_result.get("sources", [])
 
-            # Stream the main answer from the LLM
-            async for chunk in llm_handler.stream_answer(req.query, context_chunks, req.history):
+            # Stream the main answer from the LLM, passing the structured matches
+            async for chunk in llm_handler.stream_answer(req.query, matches, req.history):
                 yield f"data: {json.dumps({'type': 'token', 'payload': chunk})}\n\n"
 
-            # After the answer, stream the source documents
+            # After the answer, derive the source documents from the matches and stream them
+            source_documents = list(set(
+                match['metadata']['source'] for match in matches if 'source' in match.get('metadata', {})
+            ))
             if source_documents:
                 yield f"data: {json.dumps({'type': 'sources', 'payload': source_documents})}\n\n"
             

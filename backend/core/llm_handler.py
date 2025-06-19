@@ -30,7 +30,7 @@ ADTV_BRAND_PERSONA = """
 ---
 """
 
-async def stream_answer(query: str, context: list[str], history: List[Dict[str, str]]) -> AsyncGenerator[str, None]:
+async def stream_answer(query: str, matches: list, history: List[Dict[str, str]]) -> AsyncGenerator[str, None]:
     """
     Generates an answer using the LLM based on the query, context, and chat history.
     Initializes a new LLM client for each call to ensure stability.
@@ -41,12 +41,28 @@ async def stream_answer(query: str, context: list[str], history: List[Dict[str, 
         google_api_key=os.environ["GEMINI_API_KEY"]
     )
 
-    context_str = "\n".join(context)
+    context_str = ""
+    if matches:
+        chunks_by_source = {}
+        for match in matches:
+            source = match.get('metadata', {}).get('source', 'Unknown Source')
+            text = match.get('metadata', {}).get('text', '')
+            if source not in chunks_by_source:
+                chunks_by_source[source] = []
+            chunks_by_source[source].append(text)
+
+        formatted_chunks = []
+        for source, texts in chunks_by_source.items():
+            source_header = f"--- Context from document: {source} ---"
+            source_content = "\n".join(f"- {text}" for text in texts)
+            formatted_chunks.append(f"{source_header}\n{source_content}")
+        
+        context_str = "\n\n".join(formatted_chunks)
     
     # --- Construct the message history for the LLM ---
     # Combine persona and context into a single system message for the Gemini API.
     system_prompt_parts = [ADTV_BRAND_PERSONA]
-    if context:
+    if context_str:
         system_prompt_parts.append(f"CRITICAL: You MUST use the following context to answer the user's question. If the answer is not here, you MUST state that you could not find the information in the documents.\n\n<context>\n{context_str}\n</context>")
     
     final_system_prompt = "\n\n".join(system_prompt_parts)
