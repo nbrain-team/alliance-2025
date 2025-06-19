@@ -23,13 +23,16 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
     const handleSendMessage = async (query: string) => {
         if (!query.trim()) return;
 
-        // Add user's message to the chat
-        setMessages(prev => [...prev, { text: query, sender: 'user' }]);
+        const newUserMessage: Message = { text: query, sender: 'user' };
+        const currentMessages = [...messages, newUserMessage];
+        setMessages(currentMessages);
         setIsLoading(true);
 
-        // Prepare form data
+        // Prepare form data, including history
         const params = new URLSearchParams();
         params.append('query', query);
+        // We send all messages *except* the last one (the new user query) as history
+        params.append('history', JSON.stringify(currentMessages.slice(0, -1)));
 
         try {
             // Initiate the streaming request
@@ -113,8 +116,8 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
                 <Text size="5" weight="bold" style={{ color: 'var(--gray-12)' }}>ADTV AI Assistant</Text>
             </Box>
 
-            <ScrollArea style={{ flex: 1, padding: '1rem' }}>
-                <Box style={{ maxWidth: '800px', margin: '0 auto' }}>
+            <ScrollArea style={{ flex: 1, padding: '1rem', width: '100%' }}>
+                <Box style={{ maxWidth: '1000px', margin: '0' }}>
                     {messages.map((msg, index) => (
                         <div key={index} className="message-container">
                             <div className={`message-bubble ${msg.sender}`}>
@@ -159,6 +162,8 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
 const STYLES = `
     .message-container {
         margin-bottom: 1rem;
+        display: flex;
+        flex-direction: column;
     }
     .message-bubble {
         max-width: 85%;
@@ -166,19 +171,21 @@ const STYLES = `
         border-radius: 18px;
         word-wrap: break-word;
         box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        border: 1px solid var(--gray-4);
     }
     .message-bubble.user {
-        background-color: #1c3d7a; /* Dark blue */
-        color: white;
+        background-color: var(--gray-2); /* Light light grey */
+        color: var(--gray-12);
         margin-left: auto;
         border-bottom-right-radius: 4px;
+        align-self: flex-end;
     }
     .message-bubble.ai {
-        background-color: #f0f4f8; /* Light grey-blue */
+        background-color: white; /* White */
         color: var(--gray-12);
         margin-right: auto;
-        border: 1px solid var(--gray-5);
         border-bottom-left-radius: 4px;
+        align-self: flex-start;
     }
     .message-bubble.ai table {
         width: 100%;
@@ -201,14 +208,18 @@ const STYLES = `
         border-bottom: none;
     }
     .citations {
-        margin-top: 0.25rem;
-        margin-left: 1rem;
+        margin-top: 0.5rem;
+        margin-left: 0;
+        max-width: 85%;
         font-size: 0.75rem;
         color: var(--gray-10);
+        align-self: flex-start;
     }
     .citation-title {
         font-weight: 600;
         margin-right: 0.5rem;
+        margin-top: 0.25rem;
+        font-family: monospace;
     }
     .citation-source {
         display: inline-block;

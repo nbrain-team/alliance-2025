@@ -11,7 +11,7 @@ import json
 from contextlib import asynccontextmanager
 from core.processor import process_file
 from core.pinecone_manager import PineconeManager
-from core.llm_handler import LLMHandler
+from core.llm_handler import stream_answer as llm_stream_answer
 from core.gcs_manager import GCSManager
 
 load_dotenv()
@@ -30,8 +30,8 @@ async def lifespan(app: FastAPI):
     # Initialize to None to indicate they are not ready
     state["pinecone_manager"] = None
     state["gcs_manager"] = None
-    state["llm_handler"] = None
-
+    # LLM Handler is now stateless, no need to initialize here.
+    
     try:
         # Explicitly check for each required environment variable
         required_env_vars = [
@@ -63,11 +63,7 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"FATAL: GCSManager failed to initialize: {e}", file=sys.stderr)
 
-    try:
-        state["llm_handler"] = LLMHandler()
-        print("LLMHandler initialized successfully.")
-    except Exception as e:
-        print(f"FATAL: LLMHandler failed to initialize: {e}", file=sys.stderr)
+    # LLM Handler is now stateless, no need to initialize here.
 
     print("Application startup: Initialization sequence complete.")
     
@@ -225,21 +221,28 @@ async def delete_document(file_name: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/query")
-async def query_documents(query: str = Form(...), file_names: Optional[List[str]] = Form(None)):
+async def query_documents(query: str = Form(...), 
+                        file_names: Optional[List[str]] = Form(None), 
+                        history: str = Form("[]")):
     """
     Queries the vector database and streams the response as Server-Sent Events.
+    Accepts an optional 'history' parameter for conversational context.
     """
-    async def stream_answer() -> AsyncGenerator[str, None]:
+    try:
+        chat_history = json.loads(history)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON in 'history' field.")
+
+    async def stream_generator() -> AsyncGenerator[str, None]:
         try:
             pinecone_manager = get_manager("pinecone_manager")
-            llm_handler = get_manager("llm_handler")
-
+            
             query_result = pinecone_manager.query_index(query, file_names=file_names if file_names else None)
             context_chunks = query_result.get("chunks", [])
             source_documents = query_result.get("sources", [])
 
             # Stream the main answer from the LLM
-            async for chunk in llm_handler.stream_answer(query, context_chunks):
+            async for chunk in llm_stream_answer(query, context_chunks, chat_history):
                 yield f"data: {json.dumps({'type': 'token', 'payload': chunk})}\n\n"
             
             # After the answer, stream the source documents
@@ -250,4 +253,4 @@ async def query_documents(query: str = Form(...), file_names: Optional[List[str]
             print(f"Error in stream_answer: {e}")
             yield f"data: {json.dumps({'type': 'error', 'payload': str(e)})}\n\n"
 
-    return StreamingResponse(stream_answer(), media_type="text/event-stream")
+    return StreamingResponse(stream_generator(), media_type="text/event-stream")
