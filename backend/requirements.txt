@@ -1,12 +1,9 @@
 fastapi
 uvicorn==0.30.1
 python-dotenv
-openai-whisper
-moviepy==1.0.3
 pinecone-client
 langchain-google-genai
 langchain-pinecone==0.1.1
-google-cloud-storage
 langchain
 python-multipart
 langchain-text-splitters==0.2.2
