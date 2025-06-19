@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api';
 import { Checkbox, IconButton, Button } from '@radix-ui/themes';
 import { TrashIcon, ChevronLeftIcon, ChevronRightIcon } from '@radix-ui/react-icons';
-import axios from 'axios';
 
 type UploadType = 'files' | 'urls';
 
