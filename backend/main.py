@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 import os
 import shutil
 import sys
+import json
 from contextlib import asynccontextmanager
 from core.processor import process_file
 from core.pinecone_manager import PineconeManager
@@ -226,19 +227,27 @@ async def delete_document(file_name: str):
 @app.post("/query")
 async def query_documents(query: str = Form(...), file_names: Optional[List[str]] = Form(None)):
     """
-    Queries the vector database and streams the response.
+    Queries the vector database and streams the response as Server-Sent Events.
     """
     async def stream_answer() -> AsyncGenerator[str, None]:
         try:
             pinecone_manager = get_manager("pinecone_manager")
             llm_handler = get_manager("llm_handler")
 
-            context_chunks = pinecone_manager.query_index(query, file_names=file_names if file_names else None)
+            query_result = pinecone_manager.query_index(query, file_names=file_names if file_names else None)
+            context_chunks = query_result.get("chunks", [])
+            source_documents = query_result.get("sources", [])
 
+            # Stream the main answer from the LLM
             async for chunk in llm_handler.stream_answer(query, context_chunks):
-                yield chunk
+                yield f"data: {json.dumps({'type': 'token', 'payload': chunk})}\n\n"
+            
+            # After the answer, stream the source documents
+            if source_documents:
+                yield f"data: {json.dumps({'type': 'sources', 'payload': source_documents})}\n\n"
+
         except Exception as e:
             print(f"Error in stream_answer: {e}")
-            yield f"Error: {str(e)}"
+            yield f"data: {json.dumps({'type': 'error', 'payload': str(e)})}\n\n"
 
     return StreamingResponse(stream_answer(), media_type="text/event-stream")

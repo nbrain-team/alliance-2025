@@ -115,7 +115,8 @@ class PineconeManager:
 
     def query_index(self, query: str, top_k: int = 5, file_names: List[str] = None):
         """
-        Queries the index with a question and returns the most relevant text chunks.
+        Queries the index with a question and returns the most relevant text chunks
+        and their source documents.
         """
         query_embedding = self.embeddings.embed_query(query)
         
@@ -129,5 +130,13 @@ class PineconeManager:
             include_metadata=True,
             filter=filter_metadata
         )
-        # Return only the text content from the metadata of matching vectors
-        return [match['metadata']['text'] for match in results.get('matches', [])] 
+        
+        matches = results.get('matches', [])
+        chunks = [match['metadata']['text'] for match in matches if 'text' in match.get('metadata', {})]
+        
+        sources = set()
+        for match in matches:
+            if 'source' in match.get('metadata', {}):
+                sources.add(match['metadata']['source'])
+                
+        return {"chunks": chunks, "sources": list(sources)} 
