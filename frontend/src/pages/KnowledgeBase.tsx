@@ -98,55 +98,19 @@ const KnowledgeBase = () => {
     });
     
     const queryMutation = useMutation({
-        mutationFn: async (variables: { query: string; file_names: string[] }) => {
-            const { query, file_names } = variables;
-            setQueryResponse(''); // Clear previous response
-
-            const response = await fetch(`${api.defaults.baseURL}/chat/stream`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    query,
-                    file_names,
-                    history: [], // Not using history in this context
-                }),
+        mutationFn: (variables: { query: string; file_names: string[] }) => {
+            return api.post('/chat/stream', {
+                query: variables.query,
+                file_names: variables.file_names,
+                history: [],
             });
-
-            if (!response.body) return;
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let fullResponse = '';
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                
-                const chunk = decoder.decode(value, { stream: true });
-                const lines = chunk.split('\n\n').filter(line => line.startsWith('data: '));
-
-                for (const line of lines) {
-                    const jsonStr = line.replace('data: ', '');
-                    try {
-                        const data = JSON.parse(jsonStr);
-                        if (data.type === 'token') {
-                            fullResponse += data.payload;
-                            setQueryResponse(prev => prev + data.payload);
-                        } else if (data.type === 'error') {
-                            console.error('Stream error:', data.payload);
-                            setQueryResponse(`Error: ${data.payload}`);
-                        }
-                    } catch (e) {
-                        console.error('Failed to parse stream data chunk:', jsonStr);
-                    }
-                }
-            }
-            return fullResponse;
+        },
+        onSuccess: (response) => {
+            // This part will need to be adjusted if you switch to a streaming response
+            setQueryResponse(response.data.response || JSON.stringify(response.data, null, 2));
         },
         onError: (error: any) => {
-            const errorMessage = error.message || "Query failed";
+            const errorMessage = error.response?.data?.detail || error.message || "Query failed";
             setQueryResponse(`Error: ${errorMessage}`);
         },
     });
@@ -397,7 +361,11 @@ const KnowledgeBase = () => {
                                 </button>
                             </div>
                             <div id="query-response">
-                                <p>{queryMutation.isPending ? 'Thinking...' : queryResponse || 'Your answer will appear here...'}</p>
+                                {queryMutation.isPending ? (
+                                    <p>Thinking...</p>
+                                ) : (
+                                    <p>{queryResponse || 'Your answer will appear here...'}</p>
+                                )}
                             </div>
                         </div>
                     </form>

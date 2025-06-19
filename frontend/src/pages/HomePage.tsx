@@ -7,6 +7,7 @@ import remarkGfm from 'remark-gfm';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { PersonIcon } from '@radix-ui/react-icons';
+import api from '../api';
 
 // Define the structure for a message
 interface Message {
@@ -40,28 +41,17 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
         setIsLoading(true);
 
         try {
-            const token = localStorage.getItem('token');
-            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/chat/stream`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    query: query,
-                    history: messages // Send previous messages
-                }),
+            const response = await api.post('/chat/stream', {
+                query: query,
+                history: messages // Send previous messages
+            }, {
+                responseType: 'stream' // Important for handling streams with axios
             });
 
-            if (!response.ok) {
-                throw new Error(`Server error: ${response.status}`);
-            }
-
-            const reader = response.body!.getReader();
+            const reader = response.data.getReader();
             const decoder = new TextDecoder();
             let aiResponse = '';
-            let sources: string[] = [];
-
+            
             setMessages(prev => [...prev, { text: '', sender: 'ai', sources: [] }]);
             
             while (true) {
@@ -69,49 +59,33 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
                 if (done) break;
 
                 const chunk = decoder.decode(value, { stream: true });
-                // It's possible for multiple data chunks to be in one packet
                 const eventLines = chunk.split('\n\n').filter(line => line.startsWith('data:'));
 
                 for (const line of eventLines) {
-                    const jsonData = line.substring(6);
-                    if (jsonData.trim() === '[DONE]') {
-                        continue;
-                    }
+                    const jsonStr = line.substring(6);
+                    if (jsonStr.trim() === '[DONE]') continue;
                     try {
-                        const parsedData = JSON.parse(jsonData);
-                        
-                        if(parsedData.chatId && !currentChatId) {
-                            setCurrentChatId(parsedData.chatId);
-                        }
-
+                        const parsedData = JSON.parse(jsonStr);
                         if (parsedData.content) {
                             aiResponse += parsedData.content;
-                            setMessages(prev => {
-                                const newMessages = [...prev];
-                                const lastMessage = newMessages[newMessages.length - 1];
-                                if (lastMessage.sender === 'ai') {
-                                    lastMessage.text = aiResponse;
-                                }
-                                return newMessages;
-                            });
                         }
-                        if (parsedData.sources) {
-                           sources = parsedData.sources;
-                           setMessages(prev => {
-                                const newMessages = [...prev];
-                                const lastMessage = newMessages[newMessages.length - 1];
-                                if (lastMessage.sender === 'ai') {
-                                    lastMessage.sources = sources;
+                        // Always update state to show progress
+                        setMessages(prev => {
+                            const newMessages = [...prev];
+                            const lastMessage = newMessages[newMessages.length - 1];
+                            if (lastMessage?.sender === 'ai') {
+                                lastMessage.text = aiResponse;
+                                if (parsedData.sources) {
+                                    lastMessage.sources = parsedData.sources;
                                 }
-                                return newMessages;
-                            });
-                        }
+                            }
+                            return newMessages;
+                        });
                     } catch (e) {
-                        console.error('Error parsing stream JSON:', e, 'Received:', jsonData);
+                        console.error('Error parsing stream JSON:', e, 'Received:', jsonStr);
                     }
                 }
             }
-
         } catch (error) {
             console.error('Error fetching stream:', error);
             setMessages(prev => [...prev, { text: 'Sorry, I ran into an issue.', sender: 'ai' }]);
