@@ -39,14 +39,30 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
         setIsLoading(true);
 
         try {
-            const response = await api.post('/chat/stream', {
-                query: query,
-                history: messages
-            }, {
-                responseType: 'stream'
+            const token = localStorage.getItem('token');
+            if (!token) {
+                // This should ideally not happen if the user is on this page,
+                // but it's a good safeguard.
+                throw new Error("Authentication token not found.");
+            }
+
+            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/chat/stream`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    query: query,
+                    history: messages
+                }),
             });
 
-            const reader = response.data.getReader();
+            if (!response.ok) {
+                throw new Error(`Server error: ${response.status}`);
+            }
+
+            const reader = response.body!.getReader();
             const decoder = new TextDecoder();
             let aiResponse = '';
             

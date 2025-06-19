@@ -98,19 +98,64 @@ const KnowledgeBase = () => {
     });
     
     const queryMutation = useMutation({
-        mutationFn: (variables: { query: string; file_names: string[] }) => {
-            return api.post('/chat/stream', {
-                query: variables.query,
-                file_names: variables.file_names,
-                history: [],
+        mutationFn: async (variables: { query: string; file_names: string[] }) => {
+            const { query, file_names } = variables;
+            const token = localStorage.getItem('token');
+
+            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/chat/stream`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    query,
+                    file_names,
+                    history: [], // Not using history in this context
+                }),
             });
+
+            if (!response.ok) {
+                throw new Error(`Server responded with ${response.status}`);
+            }
+            if (!response.body) {
+                throw new Error("Response body is null");
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let fullResponse = '';
+
+            // Since this component doesn't stream to the UI yet, we'll collect the full response.
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                
+                const chunk = decoder.decode(value, { stream: true });
+                const lines = chunk.split('\n\n').filter(line => line.startsWith('data: '));
+
+                for (const line of lines) {
+                    const jsonStr = line.replace('data: ', '');
+                    try {
+                        if (jsonStr.trim() === '[DONE]') continue;
+                        const data = JSON.parse(jsonStr);
+                        if (data.content) {
+                            fullResponse += data.content;
+                        }
+                    } catch (e) {
+                        console.error('Failed to parse stream data chunk:', jsonStr);
+                    }
+                }
+            }
+            // For now, let's just return the text part of the final message.
+            // A more complete implementation would handle sources as well.
+            return fullResponse;
         },
-        onSuccess: (response) => {
-            // This part will need to be adjusted if you switch to a streaming response
-            setQueryResponse(response.data.response || JSON.stringify(response.data, null, 2));
+        onSuccess: (data) => {
+            setQueryResponse(data);
         },
         onError: (error: any) => {
-            const errorMessage = error.response?.data?.detail || error.message || "Query failed";
+            const errorMessage = error.message || "Query failed";
             setQueryResponse(`Error: ${errorMessage}`);
         },
     });
