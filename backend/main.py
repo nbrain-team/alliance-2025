@@ -41,12 +41,12 @@ class ConversationSummary(BaseModel):
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class ConversationDetail(ConversationSummary):
     messages: List[ChatMessage]
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class ChatRequest(BaseModel):
     query: str
