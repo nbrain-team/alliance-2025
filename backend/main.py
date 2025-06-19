@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Form, BackgroundTasks, UploadFile, File
+from fastapi import FastAPI, HTTPException, Form, BackgroundTasks, UploadFile, File, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from typing import List, Optional, AsyncGenerator
@@ -8,12 +8,17 @@ import os
 import sys
 import json
 import tempfile
+from sqlalchemy.orm import Session
 
 from core import pinecone_manager
 from core import llm_handler
 from core import processor
+from core import database
 
 load_dotenv()
+
+# Initialize database tables on startup
+database.create_tables()
 
 app = FastAPI(
     title="ADTV RAG API",
@@ -83,6 +88,9 @@ class ChatRequest(BaseModel):
     history: List[dict] = []
     file_names: Optional[List[str]] = None
 
+class ConversationHistory(BaseModel):
+    messages: List[dict]
+
 # --- API Endpoints ---
 @app.post("/upload-files")
 async def upload_files(files: List[UploadFile] = File(...), background_tasks: BackgroundTasks = BackgroundTasks()):
@@ -132,6 +140,40 @@ async def delete_document(file_name: str):
     except Exception as e:
         print(f"Error deleting document {file_name}: {e}", file=sys.stderr)
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/history")
+def save_chat_history(conversation: ConversationHistory, db: Session = Depends(database.get_db)):
+    """Saves a full chat conversation to the database."""
+    if not conversation.messages:
+        raise HTTPException(status_code=400, detail="Cannot save an empty conversation.")
+    
+    # Create a title from the first user message
+    first_user_message = next((msg['text'] for msg in conversation.messages if msg.get('sender') == 'user'), "Untitled Chat")
+    title = first_user_message[:100] # Truncate title
+
+    new_conversation = database.ChatConversation(
+        title=title,
+        messages=conversation.dict()['messages']
+    )
+    db.add(new_conversation)
+    db.commit()
+    db.refresh(new_conversation)
+    return {"status": "success", "chat_id": new_conversation.id}
+
+@app.get("/history")
+def get_all_chat_histories(db: Session = Depends(database.get_db)):
+    """Retrieves a list of all saved chat conversations (metadata only)."""
+    conversations = db.query(database.ChatConversation).order_by(database.ChatConversation.created_at.desc()).all()
+    # Return metadata, not the full message history
+    return [{"id": c.id, "title": c.title, "created_at": c.created_at} for c in conversations]
+
+@app.get("/history/{chat_id}")
+def get_chat_history(chat_id: str, db: Session = Depends(database.get_db)):
+    """Retrieves the full message history for a specific chat."""
+    conversation = db.query(database.ChatConversation).filter(database.ChatConversation.id == chat_id).first()
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    return conversation
 
 @app.post("/chat/stream")
 async def chat_stream(req: ChatRequest):
