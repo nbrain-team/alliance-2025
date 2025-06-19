@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import HomePage from './pages/HomePage';
 import KnowledgeBase from './pages/KnowledgeBase';
+import HistoryPage from './pages/HistoryPage';
 import { MainLayout } from './components/MainLayout';
 import { useState } from 'react';
 
@@ -24,6 +25,7 @@ function App() {
           <Routes>
             <Route path="/" element={<HomePage messages={messages} setMessages={setMessages} />} />
             <Route path="/knowledge-base" element={<KnowledgeBase />} />
+            <Route path="/history" element={<HistoryPage />} />
           </Routes>
         </MainLayout>
       </Router>
