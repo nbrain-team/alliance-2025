@@ -23,7 +23,6 @@ interface HomePageProps {
 
 const HomePage = ({ messages, setMessages }: HomePageProps) => {
     const [isLoading, setIsLoading] = useState(false);
-    const [currentChatId, setCurrentChatId] = useState<string | null>(null);
     const { logout } = useAuth();
     const navigate = useNavigate();
 
@@ -36,16 +35,15 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
         if (!query.trim()) return;
 
         const newUserMessage: Message = { text: query, sender: 'user' };
-        const currentMessages = [...messages, newUserMessage];
-        setMessages(currentMessages);
+        setMessages(prev => [...prev, newUserMessage]);
         setIsLoading(true);
 
         try {
             const response = await api.post('/chat/stream', {
                 query: query,
-                history: messages // Send previous messages
+                history: messages
             }, {
-                responseType: 'stream' // Important for handling streams with axios
+                responseType: 'stream'
             });
 
             const reader = response.data.getReader();
@@ -69,7 +67,7 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
                         if (parsedData.content) {
                             aiResponse += parsedData.content;
                         }
-                        // Always update state to show progress
+                        
                         setMessages(prev => {
                             const newMessages = [...prev];
                             const lastMessage = newMessages[newMessages.length - 1];
