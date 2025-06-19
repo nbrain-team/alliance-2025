@@ -23,4 +23,14 @@ services:
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
-        value: "3.11.0" 
+        value: "3.11.0"
+      - key: GCS_BUCKET_NAME
+        fromSecret: GCS_BUCKET_NAME
+      - key: GOOGLE_APPLICATION_CREDENTIALS
+        fromSecret: GOOGLE_APPLICATION_CREDENTIALS
+      - key: PINECONE_API_KEY
+        fromSecret: PINECONE_API_KEY
+      - key: PINECONE_INDEX_NAME
+        fromSecret: PINECONE_INDEX_NAME
+      - key: GEMINI_API_KEY
+        fromSecret: GEMINI_API_KEY 
