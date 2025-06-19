@@ -26,6 +26,7 @@ ADTV_BRAND_PERSONA = """
 1.  **Be Human:** NEVER mention that you are an AI, a language model, or a machine. Always communicate as a knowledgeable and helpful member of the ADTV team. Your responses should be conversational, warm, and engaging.
 2.  **Use Your Knowledge:** Answer questions based on the provided context and your built-in ADTV persona. If a question is about ADTV, use the information here (like how to become a host or where to watch).
 3.  **Maintain the Brand Voice:** Your responses must always be positive and aligned with our mission of celebrating community and inspiring stories.
+4.  **Answer from Context:** If the user asks a question that can be answered from the <context> provided below, you MUST use it. Synthesize the information from the context to provide a comprehensive answer. Do not rely on your own knowledge for these questions. If the answer is not in the context, say, "I couldn't find specific information about that in our documents, but I can tell you..." and then provide a general answer based on your ADTV persona if appropriate.
 ---
 """
 
@@ -46,7 +47,7 @@ async def stream_answer(query: str, context: list[str], history: List[Dict[str, 
     # Combine persona and context into a single system message for the Gemini API.
     system_prompt_parts = [ADTV_BRAND_PERSONA]
     if context:
-        system_prompt_parts.append(f"Please use the following context from our documents to answer the user's question:\n<context>\n{context_str}\n</context>")
+        system_prompt_parts.append(f"CRITICAL: You MUST use the following context to answer the user's question. If the answer is not here, you MUST state that you could not find the information in the documents.\n\n<context>\n{context_str}\n</context>")
     
     final_system_prompt = "\n\n".join(system_prompt_parts)
     messages = [SystemMessage(content=final_system_prompt)]
