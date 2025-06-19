@@ -1,8 +1,10 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api';
-import { Checkbox, IconButton, Button } from '@radix-ui/themes';
-import { TrashIcon, ChevronLeftIcon, ChevronRightIcon } from '@radix-ui/react-icons';
+import { Checkbox, IconButton, Button, Flex, Heading } from '@radix-ui/themes';
+import { TrashIcon, ChevronLeftIcon, ChevronRightIcon, PersonIcon } from '@radix-ui/react-icons';
+import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 type UploadType = 'files' | 'urls';
 
@@ -26,6 +28,8 @@ const KnowledgeBase = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const docsPerPage = 10;
     const [isUploading, setIsUploading] = useState(false);
+    const { logout } = useAuth();
+    const navigate = useNavigate();
 
     // --- Data Fetching ---
     const { data: documents = [], isLoading: isLoadingDocs } = useQuery<Document[]>({
@@ -193,35 +197,36 @@ const KnowledgeBase = () => {
         queryMutation.mutate({ query: query, file_names: selectedDocs });
     };
 
+    const handleLogout = () => {
+        logout();
+        navigate('/login');
+    };
+
     return (
-        <div style={{ height: '100vh', overflowY: 'auto' }}>
+        <Flex direction="column" style={{ height: '100vh' }}>
             <style>{STYLES}</style>
             
             {/* --- Header --- */}
-            <div
+            <Flex
+                justify="between"
+                align="center"
                 style={{
-                    padding: '1rem 1.5rem',
-                    borderBottom: '1px solid var(--border)',
-                    backgroundColor: 'var(--header-bg)',
-                    boxShadow: 'var(--shadow)',
+                    padding: '1rem',
+                    borderBottom: '1px solid var(--gray-4)',
+                    backgroundColor: 'white',
                     position: 'sticky',
                     top: 0,
-                    zIndex: 10,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between'
+                    zIndex: 1
                 }}
             >
-                <h1 style={{ 
-                    fontSize: '1.75rem', 
-                    color: 'var(--primary)',
-                    fontWeight: 600,
-                    margin: 0
-                }}>Knowledge Base</h1>
-            </div>
+                <Heading size="6" style={{ color: 'var(--gray-12)'}}>Knowledge Base</Heading>
+                <IconButton onClick={handleLogout} variant="ghost" color="gray" style={{ cursor: 'pointer' }}>
+                    <PersonIcon width="22" height="22" />
+                </IconButton>
+            </Flex>
 
             {/* --- Main Content --- */}
-            <div className="knowledge-base-container">
+            <div className="knowledge-base-container" style={{ flex: 1, overflowY: 'auto' }}>
                 <section className="management-section">
                     <h2>Add to Knowledge Base</h2>
                     <form onSubmit={handleSubmit} className="upload-area">
@@ -398,7 +403,7 @@ const KnowledgeBase = () => {
                     </form>
                 </section>
             </div>
-        </div>
+        </Flex>
     );
 };
 

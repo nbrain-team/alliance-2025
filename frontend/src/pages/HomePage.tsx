@@ -1,10 +1,13 @@
-import { Box, Flex, Text, ScrollArea } from '@radix-ui/themes';
+import { Box, Flex, Text, ScrollArea, IconButton } from '@radix-ui/themes';
 import { CommandCenter } from '../components/CommandCenter';
 import { useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import api from '../api';
+import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import { PersonIcon } from '@radix-ui/react-icons';
 
 // Define the structure for a message
 interface Message {
@@ -20,117 +23,116 @@ interface HomePageProps {
 
 const HomePage = ({ messages, setMessages }: HomePageProps) => {
     const [isLoading, setIsLoading] = useState(false);
+    const [currentChatId, setCurrentChatId] = useState<string | null>(null);
+    const { logout } = useAuth();
+    const navigate = useNavigate();
+
+    const handleLogout = () => {
+        logout();
+        navigate('/login');
+    };
 
     const handleSendMessage = async (query: string) => {
         if (!query.trim()) return;
 
         const newUserMessage: Message = { text: query, sender: 'user' };
-        // Create a snapshot of the history *before* adding the new user message
-        const historyForApi = [...messages, newUserMessage];
-        setMessages(historyForApi);
+        const currentMessages = [...messages, newUserMessage];
+        setMessages(currentMessages);
         setIsLoading(true);
 
         try {
+            const token = localStorage.getItem('token');
             const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/chat/stream`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
                     query: query,
-                    // Send all messages for history
-                    history: messages
+                    history: messages // Send previous messages
                 }),
             });
 
             if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`Server responded with ${response.status}: ${errorText}`);
+                throw new Error(`Server error: ${response.status}`);
             }
 
-            if (!response.body) {
-                throw new Error("Response body is null");
-            }
-            
-            // Add the new, empty AI message bubble to be populated
-            setMessages(prev => [...prev, { text: '', sender: 'ai', sources: [] }]);
-
-            const reader = response.body.getReader();
+            const reader = response.body!.getReader();
             const decoder = new TextDecoder();
-            let buffer = '';
+            let aiResponse = '';
+            let sources: string[] = [];
+
+            setMessages(prev => [...prev, { text: '', sender: 'ai', sources: [] }]);
             
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
-                
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split('\n\n');
-                buffer = lines.pop() || '';
 
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        try {
-                            const jsonStr = line.substring(6);
-                            if (jsonStr) {
-                                const data = JSON.parse(jsonStr);
-                                if (data.type === 'token') {
-                                    setMessages(prev => {
-                                        const lastMessage = prev[prev.length - 1];
-                                        if (lastMessage && lastMessage.sender === 'ai') {
-                                            lastMessage.text += data.payload;
-                                            return [...prev.slice(0, -1), lastMessage];
-                                        }
-                                        return prev;
-                                    });
-                                } else if (data.type === 'sources') {
-                                    setMessages(prev => {
-                                        const lastMessage = prev[prev.length - 1];
-                                        if (lastMessage && lastMessage.sender === 'ai') {
-                                            lastMessage.sources = data.payload;
-                                            return [...prev.slice(0, -1), lastMessage];
-                                        }
-                                        return prev;
-                                    });
-                                } else if (data.type === 'error') {
-                                    throw new Error(data.payload);
-                                }
-                            }
-                        } catch (e) {
-                            console.error("Error parsing stream data:", e);
+                const chunk = decoder.decode(value, { stream: true });
+                // It's possible for multiple data chunks to be in one packet
+                const eventLines = chunk.split('\n\n').filter(line => line.startsWith('data:'));
+
+                for (const line of eventLines) {
+                    const jsonData = line.substring(6);
+                    if (jsonData.trim() === '[DONE]') {
+                        continue;
+                    }
+                    try {
+                        const parsedData = JSON.parse(jsonData);
+                        
+                        if(parsedData.chatId && !currentChatId) {
+                            setCurrentChatId(parsedData.chatId);
                         }
+
+                        if (parsedData.content) {
+                            aiResponse += parsedData.content;
+                            setMessages(prev => {
+                                const newMessages = [...prev];
+                                const lastMessage = newMessages[newMessages.length - 1];
+                                if (lastMessage.sender === 'ai') {
+                                    lastMessage.text = aiResponse;
+                                }
+                                return newMessages;
+                            });
+                        }
+                        if (parsedData.sources) {
+                           sources = parsedData.sources;
+                           setMessages(prev => {
+                                const newMessages = [...prev];
+                                const lastMessage = newMessages[newMessages.length - 1];
+                                if (lastMessage.sender === 'ai') {
+                                    lastMessage.sources = sources;
+                                }
+                                return newMessages;
+                            });
+                        }
+                    } catch (e) {
+                        console.error('Error parsing stream JSON:', e, 'Received:', jsonData);
                     }
                 }
             }
 
         } catch (error) {
             console.error('Error fetching stream:', error);
-            setMessages(prev => [...prev, { text: 'Sorry, something went wrong.', sender: 'ai' }]);
+            setMessages(prev => [...prev, { text: 'Sorry, I ran into an issue.', sender: 'ai' }]);
         } finally {
             setIsLoading(false);
-            // After the stream is finished, save the conversation
-            try {
-                // We use a function with setMessages to get the most up-to-date state
-                setMessages(currentMessages => {
-                    if (currentMessages.length > 1) { // Only save if there's at least one user and one AI message
-                        api.post('/history', { messages: currentMessages });
-                    }
-                    return currentMessages;
-                });
-            } catch (saveError) {
-                console.error('Failed to save chat history:', saveError);
-            }
         }
     };
 
     return (
         <Flex direction="column" style={{ height: '100vh', backgroundColor: 'var(--gray-1)' }}>
-            <Box style={{
+            <Flex justify="between" align="center" style={{
                 padding: '1rem',
                 borderBottom: '1px solid var(--gray-4)',
                 backgroundColor: 'white'
             }}>
                 <Text size="5" weight="bold" style={{ color: 'var(--gray-12)' }}>ADTV AI Assistant</Text>
-            </Box>
+                <IconButton onClick={handleLogout} variant="ghost" color="gray" style={{ cursor: 'pointer' }}>
+                    <PersonIcon width="22" height="22" />
+                </IconButton>
+            </Flex>
 
             <ScrollArea style={{ flex: 1, padding: '1rem', width: '100%' }}>
                 <Box style={{ maxWidth: '1000px', margin: '0' }}>
@@ -250,22 +252,30 @@ const STYLES = `
         display: flex;
         align-items: center;
         justify-content: center;
-        height: 20px;
+        padding: 0.8rem 1.2rem;
     }
     .thinking-indicator span {
-        width: 8px;
         height: 8px;
-        margin: 0 2px;
+        width: 8px;
         background-color: var(--gray-8);
         border-radius: 50%;
         display: inline-block;
-        animation: bounce 1.4s infinite ease-in-out both;
+        margin: 0 2px;
+        animation: thinking 1.4s infinite ease-in-out both;
     }
-    .thinking-indicator span:nth-child(1) { animation-delay: -0.32s; }
-    .thinking-indicator span:nth-child(2) { animation-delay: -0.16s; }
-    @keyframes bounce {
-      0%, 80%, 100% { transform: scale(0); }
-      40% { transform: scale(1.0); }
+    .thinking-indicator span:nth-child(1) {
+        animation-delay: -0.32s;
+    }
+    .thinking-indicator span:nth-child(2) {
+        animation-delay: -0.16s;
+    }
+    @keyframes thinking {
+        0%, 80%, 100% {
+            transform: scale(0);
+        }
+        40% {
+            transform: scale(1.0);
+        }
     }
     /* Tighter Markdown Formatting */
     .message-bubble.ai p {

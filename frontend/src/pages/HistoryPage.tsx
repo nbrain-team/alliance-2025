@@ -1,6 +1,9 @@
-import { Box, Flex, Text, Card, Heading, Spinner } from '@radix-ui/themes';
+import { Box, Flex, Text, Card, Heading, Spinner, IconButton } from '@radix-ui/themes';
 import { useQuery } from '@tanstack/react-query';
 import api from '../api';
+import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import { PersonIcon } from '@radix-ui/react-icons';
 
 interface Conversation {
   id: string;
@@ -13,6 +16,13 @@ const HistoryPage = () => {
         queryKey: ['chatHistory'],
         queryFn: () => api.get('/history').then(res => res.data),
     });
+    const { logout } = useAuth();
+    const navigate = useNavigate();
+
+    const handleLogout = () => {
+        logout();
+        navigate('/login');
+    };
 
     const handleConversationClick = (id: string) => {
         // This will be used to navigate to the detailed view of a chat.
@@ -22,8 +32,8 @@ const HistoryPage = () => {
     };
 
     return (
-        <Flex direction="column" style={{ backgroundColor: 'var(--gray-1)' }}>
-            <Box style={{
+        <Flex direction="column" style={{ height: '100vh' }}>
+            <Flex justify="between" align="center" style={{
                 padding: '1rem',
                 borderBottom: '1px solid var(--gray-4)',
                 backgroundColor: 'white',
@@ -32,7 +42,10 @@ const HistoryPage = () => {
                 zIndex: 1
             }}>
                 <Heading size="6" style={{ color: 'var(--gray-12)' }}>Chat History</Heading>
-            </Box>
+                <IconButton onClick={handleLogout} variant="ghost" color="gray" style={{ cursor: 'pointer' }}>
+                    <PersonIcon width="22" height="22" />
+                </IconButton>
+            </Flex>
 
             <Box style={{ flex: 1, padding: '1rem', overflowY: 'auto' }}>
                 {isLoading && (
