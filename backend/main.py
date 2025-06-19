@@ -1,113 +1,57 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Form, BackgroundTasks
+from fastapi import FastAPI, HTTPException, Form, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, Response
+from fastapi.responses import StreamingResponse
 from typing import List, Optional, AsyncGenerator
 from pydantic import BaseModel
 from dotenv import load_dotenv
 import os
-import shutil
 import sys
 import json
-from contextlib import asynccontextmanager
-from core.processor import process_file
+
 from core import pinecone_manager
-from core.llm_handler import stream_answer as llm_stream_answer
-from core.gcs_manager import GCSManager
+from core import gcs_manager
+from core import llm_handler
+from core.processor import process_file
 
 load_dotenv()
-
-# --- Application State and Lifespan Management ---
-# We store long-lived objects here to avoid re-initializing on every request.
-state = {}
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """
-    Manages application startup and shutdown events.
-    Initializes expensive objects like database managers here.
-    """
-    print("Application startup: Initializing service managers...")
-    # Initialize to None to indicate they are not ready.
-    # PineconeManager is now stateless and needs no initialization.
-    state["gcs_manager"] = None
-    
-    # --- Individual Service Initialization with Robust Error Handling ---
-    try:
-        state["gcs_manager"] = GCSManager()
-        print("GCSManager initialized successfully.")
-    except Exception as e:
-        print(f"FATAL: GCSManager failed to initialize: {e}", file=sys.stderr)
-
-    print("Application startup: Initialization sequence complete.")
-    
-    yield
-    
-    print("Application shutdown: Cleaning up resources.")
-    state.clear()
 
 app = FastAPI(
     title="ADTV RAG API",
     description="API for ADTV's Retrieval-Augmented Generation platform.",
     version="0.1.0",
-    lifespan=lifespan
 )
 
 # --- CORS Configuration ---
-origins = ["*"] 
-
+# Allow all origins for simplicity in this setup.
+# In a production environment, you would restrict this to your frontend's domain.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-@app.options("/{rest_of_path:path}")
-async def preflight_handler(rest_of_path: str) -> Response:
-    """
-    Handles ALL CORS pre-flight OPTIONS requests.
-    This is a robust way to ensure that our gateway doesn't
-    time out and return a 502 error on pre-flight checks.
-    """
-    return Response(status_code=204) # Use 204 No Content for OPTIONS
-
 @app.get("/")
 def read_root():
-    """
-    Root endpoint to check if the API is running.
-    """
+    """Root endpoint to check if the API is running."""
     return {"status": "ADTV RAG API is running"}
 
 class GenerateUploadUrlRequest(BaseModel):
     file_name: str
     content_type: str
 
-def get_manager(manager_name: str):
-    """Helper to get a manager from state and handle initialization errors."""
-    manager = state.get(manager_name)
-    if manager is None:
-        raise HTTPException(
-            status_code=503, 
-            detail=f"The {manager_name.replace('_', ' ').title()} is not available due to a startup error. Please check the server logs for more details."
-        )
-    return manager
-
 @app.post("/generate-upload-url")
 async def generate_upload_url(request: GenerateUploadUrlRequest):
-    """
-    Generates a pre-signed URL to upload a file directly to GCS.
-    """
+    """Generates a pre-signed URL to upload a file directly to GCS."""
     try:
-        gcs_manager = get_manager("gcs_manager")
         url = gcs_manager.generate_upload_url(
             file_name=request.file_name,
             content_type=request.content_type
         )
         return {"upload_url": url, "file_name": request.file_name}
-    except HTTPException as http_exc:
-        raise http_exc
     except Exception as e:
+        print(f"Error generating upload URL: {e}", file=sys.stderr)
         raise HTTPException(status_code=500, detail=str(e))
 
 class NotifyUploadRequest(BaseModel):
@@ -118,93 +62,68 @@ class NotifyUploadRequest(BaseModel):
 def process_and_index_file(file_name: str, content_type: str, doc_type: str):
     """
     This function runs in the background to process and index the file.
+    It's designed to be completely self-contained.
     """
-    print(f"BACKGROUND_TASK_STARTED for: {file_name}, content_type: {content_type}")
+    print(f"BACKGROUND_TASK: Starting for {file_name}")
     temp_file_path = f"temp_{file_name}"
     try:
-        gcs_manager = state.get("gcs_manager")
-        
-        if gcs_manager is None:
-            print(f"BACKGROUND_TASK_ERROR: GCS Manager not available. Aborting task for {file_name}.")
-            return
-
-        print(f"BACKGROUND_TASK_STEP: Downloading {file_name} from GCS...")
+        print(f"BACKGROUND_TASK: Downloading {file_name} from GCS...")
         gcs_manager.download_to_temp_file(file_name, temp_file_path)
-        print(f"BACKGROUND_TASK_STEP: Download complete. File at {temp_file_path}")
 
-        print(f"BACKGROUND_TASK_STEP: Processing {file_name} with content_type {content_type}...")
+        print(f"BACKGROUND_TASK: Processing {file_name}...")
         chunks = process_file(temp_file_path, content_type)
-        print(f"BACKGROUND_TASK_STEP: Processing complete. Got {len(chunks)} chunks.")
-
         if not chunks:
-            print(f"BACKGROUND_TASK_WARNING: No chunks were generated for {file_name}. Aborting upsert.")
+            print(f"BACKGROUND_TASK: No chunks found for {file_name}. Aborting.")
             return
 
-        print(f"BACKGROUND_TASK_STEP: Upserting {len(chunks)} chunks to Pinecone...")
+        print(f"BACKGROUND_TASK: Upserting {len(chunks)} chunks to Pinecone...")
         metadata = {"source": file_name, "doc_type": doc_type}
         pinecone_manager.upsert_chunks(chunks, metadata)
-        print(f"BACKGROUND_TASK_SUCCESS: Successfully processed and indexed {file_name}")
+        print(f"BACKGROUND_TASK: Successfully processed and indexed {file_name}")
 
     except Exception as e:
-        import traceback
-        print(f"BACKGROUND_TASK_ERROR: Error processing {file_name} in background: {repr(e)}")
-        traceback.print_exc()
+        print(f"BACKGROUND_TASK_ERROR: {e}", file=sys.stderr)
     finally:
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
-            print(f"BACKGROUND_TASK_FINALLY: Cleaned up temporary file: {temp_file_path}")
+            print(f"BACKGROUND_TASK: Cleaned up temporary file {temp_file_path}")
 
 @app.post("/notify-upload")
 async def notify_upload(request: NotifyUploadRequest, background_tasks: BackgroundTasks):
-    """
-    Notifies the server that a file has been uploaded to GCS.
-    This endpoint returns immediately and processing happens in the background.
-    """
-    get_manager("gcs_manager")
-    # Pinecone is stateless, no manager to get.
-
+    """Notifies the server that a file has been uploaded."""
     background_tasks.add_task(
         process_and_index_file,
         file_name=request.file_name,
         content_type=request.content_type,
         doc_type=request.doc_type
     )
-    return {"message": f"File {request.file_name} received. Processing has started in the background."}
+    return {"message": "File processing started in the background."}
 
 @app.get("/documents")
 async def get_documents():
-    """
-    Retrieves a list of all documents from the vector database.
-    """
+    """Retrieves a list of all documents from the vector database."""
     try:
-        documents = pinecone_manager.list_documents()
-        return documents
+        return pinecone_manager.list_documents()
     except Exception as e:
+        print(f"Error listing documents: {e}", file=sys.stderr)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/documents/{file_name}")
 async def delete_document(file_name: str):
-    """
-    Deletes a document and all its associated vectors from Pinecone.
-    """
+    """Deletes a document from Pinecone and GCS."""
     try:
         pinecone_manager.delete_document(file_name)
-        gcs_manager = get_manager("gcs_manager")
         gcs_manager.delete_file(file_name)
-        return {"message": f"Successfully deleted {file_name} from all sources."}
-    except HTTPException as http_exc:
-        raise http_exc
+        return {"message": f"Successfully deleted {file_name}."}
     except Exception as e:
+        print(f"Error deleting document {file_name}: {e}", file=sys.stderr)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/query")
-async def query_documents(query: str = Form(...), 
-                        file_names: Optional[List[str]] = Form(None), 
+async def query_documents(query: str = Form(...),
+                        file_names: Optional[List[str]] = Form(None),
                         history: str = Form("[]")):
-    """
-    Queries the vector database and streams the response as Server-Sent Events.
-    Accepts an optional 'history' parameter for conversational context.
-    """
+    """Queries the vector database and streams the LLM response."""
     try:
         chat_history = json.loads(history)
     except json.JSONDecodeError:
@@ -212,20 +131,22 @@ async def query_documents(query: str = Form(...),
 
     async def stream_generator() -> AsyncGenerator[str, None]:
         try:
-            query_result = pinecone_manager.query_index(query, file_names=file_names if file_names else None)
+            query_result = pinecone_manager.query_index(
+                query, file_names=file_names if file_names else None
+            )
             context_chunks = query_result.get("chunks", [])
             source_documents = query_result.get("sources", [])
 
             # Stream the main answer from the LLM
-            async for chunk in llm_stream_answer(query, context_chunks, chat_history):
+            async for chunk in llm_handler.stream_answer(query, context_chunks, chat_history):
                 yield f"data: {json.dumps({'type': 'token', 'payload': chunk})}\n\n"
-            
+
             # After the answer, stream the source documents
             if source_documents:
                 yield f"data: {json.dumps({'type': 'sources', 'payload': source_documents})}\n\n"
 
         except Exception as e:
-            print(f"Error in stream_answer: {e}")
+            print(f"Error in stream generator: {e}", file=sys.stderr)
             yield f"data: {json.dumps({'type': 'error', 'payload': str(e)})}\n\n"
 
     return StreamingResponse(stream_generator(), media_type="text/event-stream")
