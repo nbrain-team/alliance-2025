@@ -24,10 +24,6 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: "3.11.0"
-      - key: GCS_BUCKET_NAME
-        fromSecret: GCS_BUCKET_NAME
-      - key: GOOGLE_APPLICATION_CREDENTIALS_JSON
-        fromSecret: GOOGLE_APPLICATION_CREDENTIALS_JSON
       - key: PINECONE_API_KEY
         fromSecret: PINECONE_API_KEY
       - key: PINECONE_INDEX_NAME
