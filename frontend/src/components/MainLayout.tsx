@@ -1,9 +1,6 @@
-import { Box, Flex } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { Sidebar } from "./Sidebar";
 import React from "react";
-import { useAuth } from '../context/AuthContext';
-import { PersonIcon } from '@radix-ui/react-icons';
-import { useNavigate } from 'react-router-dom';
 
 interface MainLayoutProps {
     children: React.ReactNode;
@@ -11,14 +8,6 @@ interface MainLayoutProps {
 }
 
 export const MainLayout = ({ children, onNewChat }: MainLayoutProps) => {
-    const { logout } = useAuth();
-    const navigate = useNavigate();
-
-    const handleLogout = () => {
-        logout();
-        navigate('/login');
-    };
-
     return (
         <Flex style={{ height: '100vh', width: '100vw', overflow: 'hidden', background: 'var(--bg)' }}>
             <Sidebar onNewChat={onNewChat} />
