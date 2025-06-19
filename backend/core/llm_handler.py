@@ -37,7 +37,7 @@ async def stream_answer(query: str, matches: list, history: List[Dict[str, str]]
     """
     logger.info("Initializing new LLM client for this request.")
     llm = ChatGoogleGenerativeAI(
-        model="gemini-1.5-flash",
+        model="gemini-1.5-pro",
         google_api_key=os.environ["GEMINI_API_KEY"]
     )
 
