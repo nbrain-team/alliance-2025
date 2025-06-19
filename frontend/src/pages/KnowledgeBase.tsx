@@ -5,6 +5,8 @@ import { Checkbox, IconButton, Button } from '@radix-ui/themes';
 import { TrashIcon, ChevronLeftIcon, ChevronRightIcon } from '@radix-ui/react-icons';
 import axios from 'axios';
 
+type UploadType = 'files' | 'urls';
+
 // Define an interface for the document structure
 interface Document {
     name: string;
@@ -14,9 +16,9 @@ interface Document {
 
 const KnowledgeBase = () => {
     const queryClient = useQueryClient();
-    const [file, setFile] = useState<File | null>(null);
-    const [docType, setDocType] = useState('sales_marketing');
-    const [url, setUrl] = useState('');
+    const [uploadType, setUploadType] = useState<UploadType>('files');
+    const [files, setFiles] = useState<FileList | null>(null);
+    const [urls, setUrls] = useState('');
     const [selectedDocs, setSelectedDocs] = useState<string[]>([]);
     const [query, setQuery] = useState('');
     const [queryResponse, setQueryResponse] = useState('');
@@ -24,6 +26,7 @@ const KnowledgeBase = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const docsPerPage = 10;
+    const [isUploading, setIsUploading] = useState(false);
 
     // --- Data Fetching ---
     const { data: documents = [], isLoading: isLoadingDocs } = useQuery<Document[]>({
@@ -31,7 +34,8 @@ const KnowledgeBase = () => {
         queryFn: async () => {
             const response = await api.get('/documents');
             return response.data;
-        }
+        },
+        refetchInterval: 30000, // Poll every 30 seconds
     });
 
     // --- Derived State for Filtering and Pagination ---
@@ -48,60 +52,45 @@ const KnowledgeBase = () => {
 
     const totalPages = Math.ceil(filteredDocuments.length / docsPerPage);
 
-    // --- Mutations ---
-    const uploadMutation = useMutation({
-        mutationFn: async (uploadFile: File) => {
-            // 1. Get pre-signed URL
-            setUploadStatus('Getting upload link...');
-            const presignedUrlResponse = await api.post('/generate-upload-url', {
-                file_name: uploadFile.name,
-                content_type: uploadFile.type,
-            });
-            
-            const { upload_url, file_name } = presignedUrlResponse.data;
-
-            // 2. Upload file to GCS
-            setUploadStatus('Uploading file...');
-            await axios.put(upload_url, uploadFile, {
-                headers: { 'Content-Type': uploadFile.type },
-            });
-
-            // 3. Notify backend
-            setUploadStatus('Processing file...');
-            const notifyResponse = await api.post('/notify-upload', {
-                file_name: file_name,
-                content_type: uploadFile.type,
-                doc_type: docType,
-            });
-            
-            return notifyResponse.data;
-        },
+    // --- Mutations for Uploading ---
+    const uploadFilesMutation = useMutation({
+        mutationFn: (formData: FormData) => api.post('/upload-files', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        }),
         onSuccess: () => {
-            setUploadStatus('Upload successful! Refreshing list...');
+            setUploadStatus('File(s) uploaded successfully! Processing in background...');
             queryClient.invalidateQueries({ queryKey: ['documents'] });
-            setFile(null);
-            // Clear the success message after a few seconds
-            setTimeout(() => {
-                setUploadStatus('');
-            }, 5000);
+            setFiles(null);
+            setTimeout(() => setUploadStatus(''), 5000);
         },
         onError: (error: any) => {
-            const errorMessage = error.response?.data?.detail || "Upload failed";
-            setUploadStatus(`Error: ${errorMessage}`);
+            setUploadStatus(`Error: ${error.response?.data?.detail || 'File upload failed'}`);
         },
+        onSettled: () => setIsUploading(false),
+    });
+
+    const crawlUrlsMutation = useMutation({
+        mutationFn: (urlList: string[]) => api.post('/crawl-urls', { urls: urlList }),
+        onSuccess: () => {
+            setUploadStatus('URLs submitted successfully! Crawling in background...');
+            queryClient.invalidateQueries({ queryKey: ['documents'] });
+            setUrls('');
+        },
+        onError: (error: any) => {
+            setUploadStatus(`Error: ${error.response?.data?.detail || 'URL submission failed'}`);
+        },
+        onSettled: () => setIsUploading(false),
     });
     
+    // --- Mutation for Deleting ---
     const deleteMutation = useMutation({
-        mutationFn: (fileName: string) => {
-            return api.delete(`/documents/${fileName}`);
-        },
+        mutationFn: (fileName: string) => api.delete(`/documents/${fileName}`),
         onSuccess: (_data, fileName) => {
-            alert(`Document "${fileName}" deleted successfully!`);
+            alert(`Document "${fileName}" will be deleted.`);
             queryClient.invalidateQueries({ queryKey: ['documents'] });
         },
         onError: (error: any, fileName) => {
-            const errorMessage = error.response?.data?.detail || "Deletion failed";
-            alert(`Error deleting "${fileName}": ${errorMessage}`);
+            alert(`Error deleting "${fileName}": ${error.response?.data?.detail || 'Deletion failed'}`);
         },
     });
     
@@ -123,24 +112,35 @@ const KnowledgeBase = () => {
     });
 
     // --- Event Handlers ---
-    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        if (event.target.files) {
-            setFile(event.target.files[0]);
-        }
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setFiles(e.target.files);
     };
 
-    const handleUploadSubmit = (event: React.FormEvent) => {
-        event.preventDefault();
-        if (!file) {
-            alert('Please select a file to upload.');
-            return;
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsUploading(true);
+        setUploadStatus('Submitting...');
+
+        if (uploadType === 'files') {
+            if (!files || files.length === 0) {
+                setUploadStatus('Please select one or more files.');
+                setIsUploading(false);
+                return;
+            }
+            const formData = new FormData();
+            Array.from(files).forEach(file => {
+                formData.append('files', file);
+            });
+            uploadFilesMutation.mutate(formData);
+        } else {
+            const urlList = urls.split('\n').map(u => u.trim()).filter(u => u);
+            if (urlList.length === 0) {
+                setUploadStatus('Please enter one or more URLs.');
+                setIsUploading(false);
+                return;
+            }
+            crawlUrlsMutation.mutate(urlList);
         }
-        uploadMutation.mutate(file);
-    };
-    
-    const handleCrawlSubmit = (event: React.FormEvent) => {
-        event.preventDefault();
-        alert('Crawling functionality is not yet implemented.');
     };
 
     const handleDocSelectionChange = (fileName: string, isSelected: boolean) => {
@@ -188,54 +188,58 @@ const KnowledgeBase = () => {
             <div className="knowledge-base-container">
                 <section className="management-section">
                     <h2>Add to Knowledge Base</h2>
-                    <div className="upload-area">
-                        {/* File Upload Form */}
-                        <form onSubmit={handleUploadSubmit} className="form-group">
-                            <label>Upload a Document</label>
-                            <div className="custom-file-input-container">
-                                <input 
-                                    type="file" 
-                                    id="file-input" 
-                                    name="file-input" 
-                                    onChange={handleFileChange} 
-                                    key={file ? file.name : ''} 
-                                    style={{ display: 'none' }} 
-                                />
-                                <label htmlFor="file-input" className="file-input-label">
-                                    Choose File
-                                </label>
-                                <span className="file-name-display">
-                                    {file ? file.name : 'No file chosen'}
-                                </span>
+                    <form onSubmit={handleSubmit} className="upload-area">
+                        <div className="form-group">
+                            <label htmlFor="upload-type-select">Upload Type</label>
+                            <select 
+                                id="upload-type-select"
+                                value={uploadType} 
+                                onChange={e => setUploadType(e.target.value as UploadType)}
+                            >
+                                <option value="files">Upload Files (.txt, .pdf, .docx)</option>
+                                <option value="urls">Crawl URLs</option>
+                            </select>
+                        </div>
+
+                        {uploadType === 'files' ? (
+                            <div className="form-group">
+                                <label>Select Files</label>
+                                <div className="custom-file-input-container">
+                                    <input 
+                                        type="file" 
+                                        id="file-input" 
+                                        multiple
+                                        onChange={handleFileChange} 
+                                        style={{ display: 'none' }} 
+                                    />
+                                    <label htmlFor="file-input" className="file-input-label">
+                                        Choose Files
+                                    </label>
+                                    <span className="file-name-display">
+                                        {files ? `${files.length} file(s) chosen` : 'No files chosen'}
+                                    </span>
+                                </div>
                             </div>
-                            <label htmlFor="doc-type-upload">Document Type</label>
-                            <select id="doc-type-upload" value={docType} onChange={e => setDocType(e.target.value)}>
-                                <option value="sales_marketing">Sales & Marketing</option>
-                                <option value="q_a">Question & Answers</option>
-                                <option value="operations">Operations</option>
-                                <option value="time_seasonal">Time & Seasonal Content</option>
-                                <option value="other">Other</option>
-                            </select>
-                            <button type="submit" className="submit-btn" disabled={uploadMutation.isPending || !!uploadStatus}>
-                                {uploadMutation.isPending || uploadStatus ? uploadStatus : 'Upload File'}
-                            </button>
-                        </form>
-                        <div className="divider"></div>
-                        {/* URL Crawl Form */}
-                        <form onSubmit={handleCrawlSubmit} className="form-group">
-                            <label htmlFor="url-input">Crawl a Website</label>
-                            <input type="text" id="url-input" value={url} onChange={e => setUrl(e.target.value)} placeholder="https://example.com" />
-                            <label htmlFor="doc-type-crawl">Document Type</label>
-                            <select id="doc-type-crawl">
-                                <option value="sales_marketing">Sales & Marketing</option>
-                                <option value="q_a">Question & Answers</option>
-                                <option value="operations">Operations</option>
-                                <option value="time_seasonal">Time & Seasonal Content</option>
-                                <option value="other">Other</option>
-                            </select>
-                            <button type="submit" className="submit-btn" disabled>Crawl URL</button>
-                        </form>
-                    </div>
+                        ) : (
+                            <div className="form-group">
+                                <label htmlFor="url-input">Enter URLs (one per line)</label>
+                                <textarea 
+                                    id="url-input"
+                                    value={urls} 
+                                    onChange={e => setUrls(e.target.value)} 
+                                    placeholder="https://example.com/page1&#10;https://anothersite.com/article"
+                                    rows={4}
+                                />
+                            </div>
+                        )}
+                        
+                        <button type="submit" className="submit-btn" disabled={isUploading}>
+                            {isUploading ? uploadStatus : 'Submit to Knowledge Base'}
+                        </button>
+                        {uploadStatus && !isUploading && (
+                            <p className="status-message">{uploadStatus}</p>
+                        )}
+                    </form>
                 </section>
 
                 <section className="library-section">
@@ -249,7 +253,7 @@ const KnowledgeBase = () => {
                         value={searchTerm}
                         onChange={e => {
                             setSearchTerm(e.target.value);
-                            setCurrentPage(1); // Reset to first page on new search
+                            setCurrentPage(1); // Reset to first page on search
                         }}
                     />
                     <table id="document-table">
