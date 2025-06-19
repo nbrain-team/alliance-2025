@@ -1,18 +1,9 @@
-# This file will contain the core logic for processing uploaded files.
-# It will include functions to handle different file types (PDF, DOCX, TXT, etc.),
-# extract text, and chunk it for further processing.
-
-import os
-import tempfile
-import whisper
-import mimetypes
-import subprocess
-from .chunking import chunk_text
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 import docx
 from pypdf import PdfReader
 import requests
 from bs4 import BeautifulSoup
+import os
 
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 100
@@ -55,8 +46,6 @@ def process_file(file_path: str, original_filename: str) -> list[str]:
     elif file_ext == ".txt":
         text = _get_text_from_txt(file_path)
     else:
-        # If the content type is not supported, we don't raise an error,
-        # just return no chunks. The background task will log a warning.
         print(f"Warning: Unsupported file type '{file_ext}' for file {original_filename}")
         return []
 
@@ -72,7 +61,6 @@ def process_url(url: str) -> list[str]:
         
         soup = BeautifulSoup(response.content, "html.parser")
         
-        # Remove script and style elements
         for script_or_style in soup(["script", "style"]):
             script_or_style.decompose()
             
@@ -84,6 +72,3 @@ def process_url(url: str) -> list[str]:
     except requests.RequestException as e:
         print(f"Error fetching URL {url}: {e}")
         return []
-
-# NOTE: The PDF and DOCX processing functions have been removed for now
-# to resolve a local module dependency issue. They can be restored when needed. 
