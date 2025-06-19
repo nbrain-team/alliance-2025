@@ -1,7 +1,7 @@
 import os
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, JSON
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, JSON, Boolean, ForeignKey, func
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime
 import uuid
 
@@ -16,21 +16,28 @@ Base = declarative_base()
 
 # --- Database Models ---
 
-class ChatConversation(Base):
-    __tablename__ = "chat_conversations"
-
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    title = Column(String, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    messages = Column(JSON) # This will store the list of message objects
-    user_id = Column(String, index=True) # Foreign key to User
-
 class User(Base):
     __tablename__ = "users"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
+    is_active = Column(Boolean, default=True)
+
+    conversations = relationship("ChatSession", back_populates="user")
+
+
+class ChatSession(Base):
+    __tablename__ = 'chat_sessions'
+
+    id = Column(String, primary_key=True, index=True)
+    title = Column(String, index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    messages = Column(JSON, nullable=False)
+    
+    user_id = Column(String, ForeignKey('users.id'))
+    user = relationship("User", back_populates="conversations")
+
 
 def get_db():
     """Dependency to get a DB session."""

@@ -22,7 +22,7 @@ const HistoryPage = () => {
     };
 
     return (
-        <Flex direction="column" style={{ height: '100vh', backgroundColor: 'var(--gray-1)' }}>
+        <Flex direction="column" style={{ backgroundColor: 'var(--gray-1)' }}>
             <Box style={{
                 padding: '1rem',
                 borderBottom: '1px solid var(--gray-4)',

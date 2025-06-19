@@ -2,101 +2,57 @@ from fastapi import FastAPI, HTTPException, Form, BackgroundTasks, UploadFile, F
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from typing import List, Optional, AsyncGenerator
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, Field, EmailStr
 from dotenv import load_dotenv
 import os
 import sys
 import json
+import uuid
 import tempfile
 from sqlalchemy.orm import Session
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.security import OAuth2PasswordRequestForm
+import logging
+from sqlalchemy import inspect, text
+from datetime import datetime
+from fastapi.concurrency import run_in_threadpool
 
-from core import pinecone_manager
-from core import llm_handler
-from core import processor
-from core import database, auth
+from core import pinecone_manager, llm_handler, processor, auth
+from core.database import Base, get_db, engine, User, ChatSession, SessionLocal
 
 load_dotenv()
 
-# Initialize database tables on startup
-database.create_tables()
+# --- Logging ---
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-app = FastAPI(
-    title="ADTV RAG API",
-    description="API for ADTV's Retrieval-Augmented Generation platform.",
-    version="0.2.1",
-)
+# --- Pydantic Models ---
+class ChatMessage(BaseModel):
+    text: str
+    sender: str
+    sources: Optional[List[str]] = None
 
-# --- CORS Configuration ---
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+class ChatHistory(BaseModel):
+    chat_id: uuid.UUID = Field(default_factory=uuid.uuid4)
+    messages: List[ChatMessage]
 
-@app.get("/")
-def read_root():
-    """Root endpoint to check if the API is running."""
-    return {"status": "ADTV RAG API is running"}
+class ConversationSummary(BaseModel):
+    id: str
+    title: str
+    created_at: datetime
 
-# --- Background Processing ---
-def process_and_index_files(temp_file_paths: List[str], original_file_names: List[str]):
-    """Background task to process and index a list of files."""
-    print(f"BACKGROUND_TASK: Starting processing for {len(original_file_names)} files.")
-    for i, temp_path in enumerate(temp_file_paths):
-        original_name = original_file_names[i]
-        print(f"BACKGROUND_TASK: Processing {original_name}")
-        try:
-            # We can infer content_type from the original file name extension
-            chunks = processor.process_file(temp_path, original_name)
-            if not chunks:
-                print(f"BACKGROUND_TASK: No chunks found for {original_name}. Skipping.")
-                continue
-            
-            metadata = {"source": original_name, "doc_type": "file_upload"}
-            pinecone_manager.upsert_chunks(chunks, metadata)
-            print(f"BACKGROUND_TASK: Successfully processed and indexed {original_name}")
-        except Exception as e:
-            print(f"BACKGROUND_TASK_ERROR: Failed to process {original_name}. Reason: {e}", file=sys.stderr)
-        finally:
-            if os.path.exists(temp_path):
-                os.remove(temp_path)
-    print("BACKGROUND_TASK: File processing complete.")
+    class Config:
+        orm_mode = True
 
-def process_and_index_urls(urls: List[str]):
-    """Background task to crawl, process, and index a list of URLs."""
-    print(f"BACKGROUND_TASK: Starting crawling for {len(urls)} URLs.")
-    for url in urls:
-        print(f"BACKGROUND_TASK: Processing {url}")
-        try:
-            chunks = processor.process_url(url)
-            if not chunks:
-                print(f"BACKGROUND_TASK: No content found for {url}. Skipping.")
-                continue
+class ConversationDetail(ConversationSummary):
+    messages: List[ChatMessage]
+    class Config:
+        orm_mode = True
 
-            metadata = {"source": url, "doc_type": "url_crawl"}
-            pinecone_manager.upsert_chunks(chunks, metadata)
-            print(f"BACKGROUND_TASK: Successfully processed and indexed {url}")
-        except Exception as e:
-            print(f"BACKGROUND_TASK_ERROR: Failed to process {url}. Reason: {e}", file=sys.stderr)
-    print("BACKGROUND_TASK: URL crawling complete.")
-
-# --- API Data Models ---
 class ChatRequest(BaseModel):
     query: str
     history: List[dict] = []
-    file_names: Optional[List[str]] = None
-
-class ConversationHistory(BaseModel):
-    messages: List[dict]
 
 class UserCreate(BaseModel):
-    email: EmailStr
-    password: str
-
-class UserLogin(BaseModel):
     email: EmailStr
     password: str
 
@@ -104,34 +60,130 @@ class Token(BaseModel):
     access_token: str
     token_type: str
 
-# --- Auth ---
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+class UrlList(BaseModel):
+    urls: List[str]
 
-async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(database.get_db)):
-    credentials_exception = HTTPException(
-        status_code=401,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    payload = auth.decode_access_token(token)
-    if payload is None:
-        raise credentials_exception
-    email: str = payload.get("sub")
-    if email is None:
-        raise credentials_exception
-    user = db.query(database.User).filter(database.User.email == email).first()
-    if user is None:
-        raise credentials_exception
-    return user
+# --- App Initialization ---
+app = FastAPI(
+    title="ADTV RAG API",
+    description="API for ADTV's Retrieval-Augmented Generation platform.",
+    version="0.2.2",
+)
+
+# --- Migration Logic ---
+def migrate_data():
+    """
+    One-time migration of data from old chat_conversations to chat_sessions.
+    This is designed to handle schemas pre- and post-authentication.
+    """
+    inspector = inspect(engine)
+    if not inspector.has_table("chat_conversations") or not inspector.has_table("chat_sessions"):
+        logger.info("Skipping migration: One or both tables do not exist.")
+        return
+
+    db = SessionLocal()
+    try:
+        # Use a single connection for the transaction
+        with db.connection() as connection:
+            with connection.begin(): # Start a transaction
+                result = connection.execute(text("SELECT COUNT(*) FROM chat_conversations"))
+                count = result.scalar_one_or_none()
+
+                if count == 0:
+                    logger.info("'chat_conversations' is empty. Dropping old table.")
+                    connection.execute(text('DROP TABLE chat_conversations'))
+                    return
+                
+                logger.info(f"Found {count} records in 'chat_conversations'. Attempting migration.")
+                cols = [c['name'] for c in inspector.get_columns('chat_conversations')]
+
+                # This is a key part: if the old table has no user_id, it can't be migrated
+                # to the new table which requires it. We just rename it and move on.
+                if 'user_id' not in cols:
+                    logger.warning("Skipping migration: 'user_id' column not found in old table. Renaming table.")
+                    connection.execute(text('ALTER TABLE chat_conversations RENAME TO chat_conversations_pre_auth'))
+                else:
+                    # If user_id exists, we can migrate the data.
+                    connection.execute(text("""
+                        INSERT INTO chat_sessions (id, title, created_at, messages, user_id)
+                        SELECT id, title, created_at, messages, user_id FROM chat_conversations
+                        ON CONFLICT (id) DO NOTHING
+                    """))
+                    logger.info("Migration successful. Renaming old table to prevent re-runs.")
+                    connection.execute(text('ALTER TABLE chat_conversations RENAME TO chat_conversations_migrated'))
+
+    except Exception as e:
+        logger.error(f"Migration failed: {e}", exc_info=True)
+        # The transaction will be rolled back automatically by the 'with' statement on exception
+    finally:
+        db.close()
+
+
+@app.on_event("startup")
+def on_startup():
+    logger.info("Application startup: Initializing database...")
+    Base.metadata.create_all(bind=engine)
+    logger.info("Database tables checked/created.")
+    migrate_data()
+
+# --- CORS Middleware ---
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # In production, restrict this to your frontend's domain
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.get("/")
+def read_root():
+    return {"status": "ADTV RAG API is running"}
+
+# --- Background Processing ---
+def process_and_index_files(temp_file_paths: List[str], original_file_names: List[str]):
+    logger.info(f"BACKGROUND_TASK: Starting processing for {len(original_file_names)} files.")
+    for i, temp_path in enumerate(temp_file_paths):
+        original_name = original_file_names[i]
+        logger.info(f"BACKGROUND_TASK: Processing {original_name}")
+        try:
+            chunks = processor.process_file(temp_path, original_name)
+            if chunks:
+                metadata = {"source": original_name, "doc_type": "file_upload"}
+                pinecone_manager.upsert_chunks(chunks, metadata)
+                logger.info(f"BACKGROUND_TASK: Successfully processed and indexed {original_name}")
+            else:
+                logger.warning(f"BACKGROUND_TASK: No chunks found for {original_name}. Skipping.")
+        except Exception as e:
+            logger.error(f"BACKGROUND_TASK_ERROR: Failed to process {original_name}. Reason: {e}")
+        finally:
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+    logger.info("BACKGROUND_TASK: File processing complete.")
+
+def process_and_index_urls(urls: List[str]):
+    logger.info(f"BACKGROUND_TASK: Starting crawling for {len(urls)} URLs.")
+    for url in urls:
+        logger.info(f"BACKGROUND_TASK: Processing {url}")
+        try:
+            chunks = processor.process_url(url)
+            if chunks:
+                metadata = {"source": url, "doc_type": "url_crawl"}
+                pinecone_manager.upsert_chunks(chunks, metadata)
+                logger.info(f"BACKGROUND_TASK: Successfully processed and indexed {url}")
+            else:
+                logger.warning(f"BACKGROUND_TASK: No content found for {url}. Skipping.")
+        except Exception as e:
+            logger.error(f"BACKGROUND_TASK_ERROR: Failed to process {url}. Reason: {e}")
+    logger.info("BACKGROUND_TASK: URL crawling complete.")
 
 # --- API Endpoints ---
 @app.post("/signup", response_model=Token)
-def signup(user_data: UserCreate, db: Session = Depends(database.get_db)):
-    db_user = db.query(database.User).filter(database.User.email == user_data.email).first()
+def signup(user_data: UserCreate, db: Session = Depends(get_db)):
+    db_user = db.query(User).filter(User.email == user_data.email).first()
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
     hashed_password = auth.get_password_hash(user_data.password)
-    new_user = database.User(email=user_data.email, hashed_password=hashed_password)
+    new_user = User(email=user_data.email, hashed_password=hashed_password)
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
@@ -139,9 +191,9 @@ def signup(user_data: UserCreate, db: Session = Depends(database.get_db)):
     return {"access_token": access_token, "token_type": "bearer"}
 
 @app.post("/login", response_model=Token)
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(database.get_db)):
-    user = db.query(database.User).filter(database.User.email == form_data.username).first()
-    if not user or not auth.verify_password(form_data.password, user.hashed_password):
+def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    user = auth.authenticate_user(db, form_data.username, form_data.password)
+    if not user:
         raise HTTPException(
             status_code=401,
             detail="Incorrect email or password",
@@ -152,10 +204,6 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 
 @app.post("/upload-files")
 async def upload_files(files: List[UploadFile] = File(...), background_tasks: BackgroundTasks = BackgroundTasks()):
-    """
-    Accepts one or more files, saves them temporarily,
-    and processes them in the background.
-    """
     temp_file_paths = []
     original_file_names = []
     for file in files:
@@ -164,114 +212,120 @@ async def upload_files(files: List[UploadFile] = File(...), background_tasks: Ba
             temp_file.write(content)
             temp_file_paths.append(temp_file.name)
             original_file_names.append(file.filename)
-    
     background_tasks.add_task(process_and_index_files, temp_file_paths, original_file_names)
-    
     return {"message": f"Successfully uploaded {len(files)} files. Processing has started in the background."}
-
-class UrlList(BaseModel):
-    urls: List[str]
 
 @app.post("/crawl-urls")
 async def crawl_urls(url_list: UrlList, background_tasks: BackgroundTasks = BackgroundTasks()):
-    """
-    Accepts a list of URLs and processes them in the background.
-    """
     background_tasks.add_task(process_and_index_urls, url_list.urls)
     return {"message": f"Started crawling {len(url_list.urls)} URLs in the background."}
 
 @app.get("/documents")
 async def get_documents():
-    """Retrieves a list of all documents from the vector database."""
     try:
         return pinecone_manager.list_documents()
     except Exception as e:
-        print(f"Error listing documents: {e}", file=sys.stderr)
+        logger.error(f"Error listing documents: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/documents/{file_name}")
 async def delete_document(file_name: str):
-    """Deletes a document from Pinecone."""
     try:
         pinecone_manager.delete_document(file_name)
         return {"message": f"Successfully deleted {file_name}."}
     except Exception as e:
-        print(f"Error deleting document {file_name}: {e}", file=sys.stderr)
+        logger.error(f"Error deleting document {file_name}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/history")
-def save_chat_history(
-    conversation: ConversationHistory, 
-    db: Session = Depends(database.get_db), 
-    current_user: database.User = Depends(get_current_user)
+# This is a standalone function to be called from the stream
+def save_chat_history_sync(
+    chat_data: ChatHistory,
+    db: Session,
+    current_user: User
 ):
-    """Saves a full chat conversation to the database."""
-    if not conversation.messages:
-        raise HTTPException(status_code=400, detail="Cannot save an empty conversation.")
-    
-    # Create a title from the first user message
-    first_user_message = next((msg['text'] for msg in conversation.messages if msg.get('sender') == 'user'), "Untitled Chat")
-    title = first_user_message[:100] # Truncate title
+    """Saves a chat conversation to the database (synchronous version)."""
+    try:
+        first_user_message = next((msg.text for msg in chat_data.messages if msg.sender == 'user'), "New Chat")
+        title = (first_user_message[:100] + '...') if len(first_user_message) > 100 else first_user_message
+        messages_as_dicts = [msg.dict() for msg in chat_data.messages]
 
-    new_conversation = database.ChatConversation(
-        title=title,
-        messages=conversation.dict()['messages'],
-        user_id=current_user.id
-    )
-    db.add(new_conversation)
-    db.commit()
-    db.refresh(new_conversation)
-    return {"status": "success", "chat_id": new_conversation.id}
+        # Check if a conversation with this ID already exists
+        existing_convo = db.query(ChatSession).filter(ChatSession.id == str(chat_data.chat_id)).first()
 
-@app.get("/history")
-def get_all_chat_histories(db: Session = Depends(database.get_db), current_user: database.User = Depends(get_current_user)):
-    """Retrieves a list of all saved chat conversations for the current user."""
-    conversations = db.query(database.ChatConversation).filter(database.ChatConversation.user_id == current_user.id).order_by(database.ChatConversation.created_at.desc()).all()
-    # Return metadata, not the full message history
-    return [{"id": c.id, "title": c.title, "created_at": c.created_at} for c in conversations]
+        if existing_convo:
+            # Update existing conversation
+            existing_convo.messages = messages_as_dicts
+            logger.info(f"Updating conversation {existing_convo.id}")
+        else:
+            # Create new conversation
+            db_convo = ChatSession(
+                id=str(chat_data.chat_id),
+                title=title,
+                messages=messages_as_dicts,
+                user_id=current_user.id
+            )
+            db.add(db_convo)
+            logger.info(f"Creating new conversation {db_convo.id}")
+        
+        db.commit()
+    except Exception as e:
+        logger.error(f"Failed to save chat history: {e}", exc_info=True)
+        db.rollback()
 
-@app.get("/history/{chat_id}")
-def get_chat_history(chat_id: str, db: Session = Depends(database.get_db), current_user: database.User = Depends(get_current_user)):
-    """Retrieves the full message history for a specific chat."""
-    conversation = db.query(database.ChatConversation).filter(
-        database.ChatConversation.id == chat_id,
-        database.ChatConversation.user_id == current_user.id
+
+@app.get("/history", response_model=list[ConversationSummary])
+async def get_all_chat_histories(db: Session = Depends(get_db), current_user: User = Depends(auth.get_current_active_user)):
+    return db.query(ChatSession).filter(ChatSession.user_id == current_user.id).order_by(ChatSession.created_at.desc()).all()
+
+@app.get("/history/{conversation_id}", response_model=ConversationDetail)
+async def get_chat_history(conversation_id: str, db: Session = Depends(get_db), current_user: User = Depends(auth.get_current_active_user)):
+    conversation = db.query(ChatSession).filter(
+        ChatSession.id == conversation_id,
+        ChatSession.user_id == current_user.id
     ).first()
+
     if not conversation:
-        raise HTTPException(status_code=404, detail="Chat not found or you don't have access")
+        raise HTTPException(status_code=404, detail="Conversation not found or access denied")
     return conversation
 
 @app.post("/chat/stream")
-async def chat_stream(req: ChatRequest):
-    """
-    Primary chat endpoint. Receives a query, retrieves context from Pinecone,
-    and streams the LLM's response.
-    """
+async def chat_stream(req: ChatRequest, current_user: User = Depends(auth.get_current_active_user)):
     async def stream_generator() -> AsyncGenerator[str, None]:
+        full_response = ""
+        source_documents = []
+        chat_id = str(uuid.uuid4()) # Generate a single ID for the entire conversation
+
         try:
-            # Query Pinecone for relevant context using the user's query and selected files
-            matches = pinecone_manager.query_index(
-                req.query, file_names=req.file_names if req.file_names else None
-            )
-
-            # Stream the main answer from the LLM, passing the structured matches
-            async for chunk in llm_handler.stream_answer(req.query, matches, req.history):
-                yield f"data: {json.dumps({'type': 'token', 'payload': chunk})}\n\n"
-
-            # After the answer, derive the source documents from the matches and stream them
-            source_documents = list(set(
-                match['metadata']['source'] for match in matches if 'source' in match.get('metadata', {})
-            ))
-            if source_documents:
-                yield f"data: {json.dumps({'type': 'sources', 'payload': source_documents})}\n\n"
+            generator = llm_handler.get_response_stream(req.query, req.history)
             
-            # Send a final 'end' message to signal completion
-            yield f"data: {json.dumps({'type': 'end', 'payload': 'Stream finished'})}\n\n"
+            async for chunk in generator:
+                if "content" in chunk and chunk["content"]:
+                    content_chunk = chunk["content"]
+                    full_response += content_chunk
+                    yield f"data: {json.dumps({'content': content_chunk, 'chatId': chat_id})}\n\n"
+                
+                if "sources" in chunk and chunk["sources"]:
+                    source_documents = chunk["sources"]
+
+            if full_response:
+                history_messages = req.history + [
+                    {"text": req.query, "sender": "user"},
+                    {"text": full_response, "sender": "ai", "sources": source_documents}
+                ]
+                
+                pydantic_messages = [ChatMessage(**msg) for msg in history_messages]
+                # Use the same chat_id generated at the start of the stream
+                history_to_save = ChatHistory(chat_id=uuid.UUID(chat_id), messages=pydantic_messages)
+
+                with SessionLocal() as db:
+                    await run_in_threadpool(save_chat_history_sync, history_to_save, db, current_user)
 
         except Exception as e:
-            print(f"Error in stream generator: {e}", file=sys.stderr)
-            # Use a more robust error format for the client
-            error_payload = json.dumps({'type': 'error', 'payload': f'An internal error occurred: {str(e)}'})
-            yield f"data: {error_payload}\n\n"
+            logger.error(f"Error during chat stream: {e}", exc_info=True)
+            error_message = json.dumps({"error": "An unexpected error occurred."})
+            yield f"data: {error_message}\n\n"
+        finally:
+            yield "data: [DONE]\n\n"
+            logger.info("Chat stream finished.")
 
     return StreamingResponse(stream_generator(), media_type="text/event-stream")
