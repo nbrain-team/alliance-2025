@@ -71,4 +71,4 @@ def process_url(url: str) -> list[str]:
         
     except requests.RequestException as e:
         print(f"Error fetching URL {url}: {e}")
-        return []
+        return [] 
