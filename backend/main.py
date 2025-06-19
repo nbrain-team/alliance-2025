@@ -18,7 +18,7 @@ load_dotenv()
 app = FastAPI(
     title="ADTV RAG API",
     description="API for ADTV's Retrieval-Augmented Generation platform.",
-    version="0.2.0",
+    version="0.2.1",
 )
 
 # --- CORS Configuration ---
@@ -77,6 +77,12 @@ def process_and_index_urls(urls: List[str]):
             print(f"BACKGROUND_TASK_ERROR: Failed to process {url}. Reason: {e}", file=sys.stderr)
     print("BACKGROUND_TASK: URL crawling complete.")
 
+# --- API Data Models ---
+class ChatRequest(BaseModel):
+    query: str
+    history: List[dict] = []
+    file_names: Optional[List[str]] = None
+
 # --- API Endpoints ---
 @app.post("/upload-files")
 async def upload_files(files: List[UploadFile] = File(...), background_tasks: BackgroundTasks = BackgroundTasks()):
@@ -87,7 +93,7 @@ async def upload_files(files: List[UploadFile] = File(...), background_tasks: Ba
     temp_file_paths = []
     original_file_names = []
     for file in files:
-        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=f"_{file.filename}") as temp_file:
             content = await file.read()
             temp_file.write(content)
             temp_file_paths.append(temp_file.name)
@@ -127,34 +133,36 @@ async def delete_document(file_name: str):
         print(f"Error deleting document {file_name}: {e}", file=sys.stderr)
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/query")
-async def query_documents(query: str = Form(...),
-                        file_names: Optional[List[str]] = Form(None),
-                        history: str = Form("[]")):
-    """Queries the vector database and streams the LLM response."""
-    try:
-        chat_history = json.loads(history)
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=400, detail="Invalid JSON in 'history' field.")
-
+@app.post("/chat/stream")
+async def chat_stream(req: ChatRequest):
+    """
+    Primary chat endpoint. Receives a query, retrieves context from Pinecone,
+    and streams the LLM's response.
+    """
     async def stream_generator() -> AsyncGenerator[str, None]:
         try:
+            # Query Pinecone for relevant context using the user's query and selected files
             query_result = pinecone_manager.query_index(
-                query, file_names=file_names if file_names else None
+                req.query, file_names=req.file_names if req.file_names else None
             )
             context_chunks = query_result.get("chunks", [])
             source_documents = query_result.get("sources", [])
 
             # Stream the main answer from the LLM
-            async for chunk in llm_handler.stream_answer(query, context_chunks, chat_history):
+            async for chunk in llm_handler.stream_answer(req.query, context_chunks, req.history):
                 yield f"data: {json.dumps({'type': 'token', 'payload': chunk})}\n\n"
 
             # After the answer, stream the source documents
             if source_documents:
                 yield f"data: {json.dumps({'type': 'sources', 'payload': source_documents})}\n\n"
+            
+            # Send a final 'end' message to signal completion
+            yield f"data: {json.dumps({'type': 'end', 'payload': 'Stream finished'})}\n\n"
 
         except Exception as e:
             print(f"Error in stream generator: {e}", file=sys.stderr)
-            yield f"data: {json.dumps({'type': 'error', 'payload': str(e)})}\n\n"
+            # Use a more robust error format for the client
+            error_payload = json.dumps({'type': 'error', 'payload': f'An internal error occurred: {str(e)}'})
+            yield f"data: {error_payload}\n\n"
 
     return StreamingResponse(stream_generator(), media_type="text/event-stream")
