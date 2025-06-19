@@ -94,18 +94,55 @@ const KnowledgeBase = () => {
     });
     
     const queryMutation = useMutation({
-        mutationFn: (variables: { query: string; file_names: string[] }) => {
+        mutationFn: async (variables: { query: string; file_names: string[] }) => {
             const { query, file_names } = variables;
-            const params = new URLSearchParams();
-            params.append('query', query);
-            file_names.forEach(name => params.append('file_names', name));
-            return api.post('/query', params);
-        },
-        onSuccess: (data) => {
-            setQueryResponse(data.data.answer);
+            setQueryResponse(''); // Clear previous response
+
+            const response = await fetch(`${api.defaults.baseURL}/chat/stream`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    query,
+                    file_names,
+                    history: [], // Not using history in this context
+                }),
+            });
+
+            if (!response.body) return;
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let fullResponse = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                
+                const chunk = decoder.decode(value, { stream: true });
+                const lines = chunk.split('\n\n').filter(line => line.startsWith('data: '));
+
+                for (const line of lines) {
+                    const jsonStr = line.replace('data: ', '');
+                    try {
+                        const data = JSON.parse(jsonStr);
+                        if (data.type === 'token') {
+                            fullResponse += data.payload;
+                            setQueryResponse(prev => prev + data.payload);
+                        } else if (data.type === 'error') {
+                            console.error('Stream error:', data.payload);
+                            setQueryResponse(`Error: ${data.payload}`);
+                        }
+                    } catch (e) {
+                        console.error('Failed to parse stream data chunk:', jsonStr);
+                    }
+                }
+            }
+            return fullResponse;
         },
         onError: (error: any) => {
-            const errorMessage = error.response?.data?.detail || "Query failed";
+            const errorMessage = error.message || "Query failed";
             setQueryResponse(`Error: ${errorMessage}`);
         },
     });
