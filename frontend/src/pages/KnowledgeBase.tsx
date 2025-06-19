@@ -232,12 +232,14 @@ const KnowledgeBase = () => {
                             </div>
                         )}
                         
-                        <button type="submit" className="submit-btn" disabled={isUploading}>
-                            {isUploading ? uploadStatus : 'Submit to Knowledge Base'}
-                        </button>
-                        {uploadStatus && !isUploading && (
-                            <p className="status-message">{uploadStatus}</p>
-                        )}
+                        <div className="form-group">
+                            <button type="submit" className="submit-btn" disabled={isUploading}>
+                                {isUploading ? uploadStatus : 'Submit to Knowledge Base'}
+                            </button>
+                            {uploadStatus && !isUploading && (
+                                <p className="status-message">{uploadStatus}</p>
+                            )}
+                        </div>
                     </form>
                 </section>
 

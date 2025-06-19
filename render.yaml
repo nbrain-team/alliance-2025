@@ -29,4 +29,4 @@ services:
       - key: PINECONE_INDEX_NAME
         fromSecret: PINECONE_INDEX_NAME
       - key: GEMINI_API_KEY
-        fromSecret: GEMINI_API_KEY 
+        fromSecret: GEMINI_API_KEY
