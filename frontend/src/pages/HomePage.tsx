@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import api from '../api';
 
 // Define the structure for a message
 interface Message {
@@ -106,6 +107,18 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
             setMessages(prev => [...prev, { text: 'Sorry, something went wrong.', sender: 'ai' }]);
         } finally {
             setIsLoading(false);
+            // After the stream is finished, save the conversation
+            try {
+                // We use a function with setMessages to get the most up-to-date state
+                setMessages(currentMessages => {
+                    if (currentMessages.length > 1) { // Only save if there's at least one user and one AI message
+                        api.post('/history', { messages: currentMessages });
+                    }
+                    return currentMessages;
+                });
+            } catch (saveError) {
+                console.error('Failed to save chat history:', saveError);
+            }
         }
     };
 
