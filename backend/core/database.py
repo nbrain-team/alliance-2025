@@ -23,6 +23,14 @@ class ChatConversation(Base):
     title = Column(String, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     messages = Column(JSON) # This will store the list of message objects
+    user_id = Column(String, index=True) # Foreign key to User
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    email = Column(String, unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
 
 def get_db():
     """Dependency to get a DB session."""

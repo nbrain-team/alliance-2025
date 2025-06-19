@@ -2,18 +2,19 @@ from fastapi import FastAPI, HTTPException, Form, BackgroundTasks, UploadFile, F
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from typing import List, Optional, AsyncGenerator
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from dotenv import load_dotenv
 import os
 import sys
 import json
 import tempfile
 from sqlalchemy.orm import Session
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 
 from core import pinecone_manager
 from core import llm_handler
 from core import processor
-from core import database
+from core import database, auth
 
 load_dotenv()
 
@@ -91,7 +92,64 @@ class ChatRequest(BaseModel):
 class ConversationHistory(BaseModel):
     messages: List[dict]
 
+class UserCreate(BaseModel):
+    email: EmailStr
+    password: str
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+# --- Auth ---
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+
+async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(database.get_db)):
+    credentials_exception = HTTPException(
+        status_code=401,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    payload = auth.decode_access_token(token)
+    if payload is None:
+        raise credentials_exception
+    email: str = payload.get("sub")
+    if email is None:
+        raise credentials_exception
+    user = db.query(database.User).filter(database.User.email == email).first()
+    if user is None:
+        raise credentials_exception
+    return user
+
 # --- API Endpoints ---
+@app.post("/signup", response_model=Token)
+def signup(user_data: UserCreate, db: Session = Depends(database.get_db)):
+    db_user = db.query(database.User).filter(database.User.email == user_data.email).first()
+    if db_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    hashed_password = auth.get_password_hash(user_data.password)
+    new_user = database.User(email=user_data.email, hashed_password=hashed_password)
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    access_token = auth.create_access_token(data={"sub": new_user.email})
+    return {"access_token": access_token, "token_type": "bearer"}
+
+@app.post("/login", response_model=Token)
+def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(database.get_db)):
+    user = db.query(database.User).filter(database.User.email == form_data.username).first()
+    if not user or not auth.verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(
+            status_code=401,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token = auth.create_access_token(data={"sub": user.email})
+    return {"access_token": access_token, "token_type": "bearer"}
+
 @app.post("/upload-files")
 async def upload_files(files: List[UploadFile] = File(...), background_tasks: BackgroundTasks = BackgroundTasks()):
     """
@@ -142,7 +200,11 @@ async def delete_document(file_name: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/history")
-def save_chat_history(conversation: ConversationHistory, db: Session = Depends(database.get_db)):
+def save_chat_history(
+    conversation: ConversationHistory, 
+    db: Session = Depends(database.get_db), 
+    current_user: database.User = Depends(get_current_user)
+):
     """Saves a full chat conversation to the database."""
     if not conversation.messages:
         raise HTTPException(status_code=400, detail="Cannot save an empty conversation.")
@@ -153,7 +215,8 @@ def save_chat_history(conversation: ConversationHistory, db: Session = Depends(d
 
     new_conversation = database.ChatConversation(
         title=title,
-        messages=conversation.dict()['messages']
+        messages=conversation.dict()['messages'],
+        user_id=current_user.id
     )
     db.add(new_conversation)
     db.commit()
@@ -161,18 +224,21 @@ def save_chat_history(conversation: ConversationHistory, db: Session = Depends(d
     return {"status": "success", "chat_id": new_conversation.id}
 
 @app.get("/history")
-def get_all_chat_histories(db: Session = Depends(database.get_db)):
-    """Retrieves a list of all saved chat conversations (metadata only)."""
-    conversations = db.query(database.ChatConversation).order_by(database.ChatConversation.created_at.desc()).all()
+def get_all_chat_histories(db: Session = Depends(database.get_db), current_user: database.User = Depends(get_current_user)):
+    """Retrieves a list of all saved chat conversations for the current user."""
+    conversations = db.query(database.ChatConversation).filter(database.ChatConversation.user_id == current_user.id).order_by(database.ChatConversation.created_at.desc()).all()
     # Return metadata, not the full message history
     return [{"id": c.id, "title": c.title, "created_at": c.created_at} for c in conversations]
 
 @app.get("/history/{chat_id}")
-def get_chat_history(chat_id: str, db: Session = Depends(database.get_db)):
+def get_chat_history(chat_id: str, db: Session = Depends(database.get_db), current_user: database.User = Depends(get_current_user)):
     """Retrieves the full message history for a specific chat."""
-    conversation = db.query(database.ChatConversation).filter(database.ChatConversation.id == chat_id).first()
+    conversation = db.query(database.ChatConversation).filter(
+        database.ChatConversation.id == chat_id,
+        database.ChatConversation.user_id == current_user.id
+    ).first()
     if not conversation:
-        raise HTTPException(status_code=404, detail="Chat not found")
+        raise HTTPException(status_code=404, detail="Chat not found or you don't have access")
     return conversation
 
 @app.post("/chat/stream")
