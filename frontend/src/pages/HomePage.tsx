@@ -24,21 +24,22 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
         if (!query.trim()) return;
 
         const newUserMessage: Message = { text: query, sender: 'user' };
-        const currentMessages = [...messages, newUserMessage];
-        setMessages(currentMessages);
+        // Create a snapshot of the history *before* adding the new user message
+        const historyForApi = [...messages, newUserMessage];
+        setMessages(historyForApi);
         setIsLoading(true);
 
-        // Prepare form data, including history
-        const params = new URLSearchParams();
-        params.append('query', query);
-        // We send all messages *except* the last one (the new user query) as history
-        params.append('history', JSON.stringify(currentMessages.slice(0, -1)));
-
         try {
-            // Initiate the streaming request
-            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/query`, {
+            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/chat/stream`, {
                 method: 'POST',
-                body: params,
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    query: query,
+                    // Send all messages for history
+                    history: messages
+                }),
             });
 
             if (!response.ok) {
@@ -49,47 +50,49 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
             if (!response.body) {
                 throw new Error("Response body is null");
             }
-
-            // Add a new AI message to the chat that will be updated as chunks arrive
+            
+            // Add the new, empty AI message bubble to be populated
             setMessages(prev => [...prev, { text: '', sender: 'ai', sources: [] }]);
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let buffer = '';
             
-            // Read the stream
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
                 
                 buffer += decoder.decode(value, { stream: true });
                 const lines = buffer.split('\n\n');
-                buffer = lines.pop() || ''; // Keep the last, possibly incomplete, line
+                buffer = lines.pop() || '';
 
                 for (const line of lines) {
                     if (line.startsWith('data: ')) {
                         try {
-                            const data = JSON.parse(line.substring(6));
-                            if (data.type === 'token') {
-                                setMessages(prev => {
-                                    const lastMessage = prev[prev.length - 1];
-                                    if (lastMessage && lastMessage.sender === 'ai') {
-                                        lastMessage.text += data.payload;
-                                        return [...prev.slice(0, -1), lastMessage];
-                                    }
-                                    return prev;
-                                });
-                            } else if (data.type === 'sources') {
-                                setMessages(prev => {
-                                    const lastMessage = prev[prev.length - 1];
-                                    if (lastMessage && lastMessage.sender === 'ai') {
-                                        lastMessage.sources = data.payload;
-                                        return [...prev.slice(0, -1), lastMessage];
-                                    }
-                                    return prev;
-                                });
-                            } else if (data.type === 'error') {
-                                throw new Error(data.payload);
+                            const jsonStr = line.substring(6);
+                            if (jsonStr) {
+                                const data = JSON.parse(jsonStr);
+                                if (data.type === 'token') {
+                                    setMessages(prev => {
+                                        const lastMessage = prev[prev.length - 1];
+                                        if (lastMessage && lastMessage.sender === 'ai') {
+                                            lastMessage.text += data.payload;
+                                            return [...prev.slice(0, -1), lastMessage];
+                                        }
+                                        return prev;
+                                    });
+                                } else if (data.type === 'sources') {
+                                    setMessages(prev => {
+                                        const lastMessage = prev[prev.length - 1];
+                                        if (lastMessage && lastMessage.sender === 'ai') {
+                                            lastMessage.sources = data.payload;
+                                            return [...prev.slice(0, -1), lastMessage];
+                                        }
+                                        return prev;
+                                    });
+                                } else if (data.type === 'error') {
+                                    throw new Error(data.payload);
+                                }
                             }
                         } catch (e) {
                             console.error("Error parsing stream data:", e);
