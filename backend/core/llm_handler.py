@@ -43,11 +43,13 @@ async def stream_answer(query: str, context: list[str], history: List[Dict[str, 
     context_str = "\n".join(context)
     
     # --- Construct the message history for the LLM ---
-    messages = [SystemMessage(content=ADTV_BRAND_PERSONA)]
-
-    # Add document context if it exists
+    # Combine persona and context into a single system message for the Gemini API.
+    system_prompt_parts = [ADTV_BRAND_PERSONA]
     if context:
-        messages.append(SystemMessage(content=f"Please use the following context from our documents to answer the user's question:\n<context>\n{context_str}\n</context>"))
+        system_prompt_parts.append(f"Please use the following context from our documents to answer the user's question:\n<context>\n{context_str}\n</context>")
+    
+    final_system_prompt = "\n\n".join(system_prompt_parts)
+    messages = [SystemMessage(content=final_system_prompt)]
 
     # Add past conversation history
     for message in history:
