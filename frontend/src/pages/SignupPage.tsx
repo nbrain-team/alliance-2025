@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Box, Button, Card, Flex, Heading, Text, TextField } from '@radix-ui/themes';
+import { Button, Card, Flex, Heading, Text, TextField } from '@radix-ui/themes';
 import api from '../api';
 
 const SignupPage = () => {

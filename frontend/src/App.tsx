@@ -20,12 +20,12 @@ interface Message {
 const queryClient = new QueryClient();
 
 // A wrapper for routes that require authentication
-const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, isLoading } = useAuth();
   if (isLoading) {
     return <div>Loading...</div>; // Or a spinner
   }
-  return isAuthenticated ? children : <Navigate to="/login" />;
+  return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
 };
 
 function App() {

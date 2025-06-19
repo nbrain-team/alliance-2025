@@ -1,7 +1,6 @@
 import { Box, Flex, Text, Card, Heading, Spinner } from '@radix-ui/themes';
 import { useQuery } from '@tanstack/react-query';
 import api from '../api';
-import { useNavigate } from 'react-router-dom';
 
 interface Conversation {
   id: string;
@@ -10,7 +9,6 @@ interface Conversation {
 }
 
 const HistoryPage = () => {
-    const navigate = useNavigate();
     const { data: conversations, isLoading, error } = useQuery<Conversation[]>({
         queryKey: ['chatHistory'],
         queryFn: () => api.get('/history').then(res => res.data),
