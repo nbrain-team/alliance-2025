@@ -10,7 +10,7 @@ import sys
 import json
 from contextlib import asynccontextmanager
 from core.processor import process_file
-from core.pinecone_manager import PineconeManager
+from core import pinecone_manager
 from core.llm_handler import stream_answer as llm_stream_answer
 from core.gcs_manager import GCSManager
 
@@ -27,43 +27,16 @@ async def lifespan(app: FastAPI):
     Initializes expensive objects like database managers here.
     """
     print("Application startup: Initializing service managers...")
-    # Initialize to None to indicate they are not ready
-    state["pinecone_manager"] = None
+    # Initialize to None to indicate they are not ready.
+    # PineconeManager is now stateless and needs no initialization.
     state["gcs_manager"] = None
-    # LLM Handler is now stateless, no need to initialize here.
-    
-    try:
-        # Explicitly check for each required environment variable
-        required_env_vars = [
-            "PINECONE_API_KEY",
-            "PINECONE_ENVIRONMENT",
-            "PINECONE_INDEX_NAME",
-            "GEMINI_API_KEY",
-            "GCS_BUCKET_NAME",
-            "GOOGLE_APPLICATION_CREDENTIALS",
-        ]
-        missing_vars = [v for v in required_env_vars if v not in os.environ]
-        if missing_vars:
-            error_msg = f"CRITICAL ERROR: Missing environment variables: {', '.join(missing_vars)}. Please set them for the 'adtv-backend' service."
-            print(error_msg, file=sys.stderr)
-            # No need to raise, as managers will fail individually
-    except Exception as e:
-        print(f"Error checking environment variables: {e}", file=sys.stderr)
     
     # --- Individual Service Initialization with Robust Error Handling ---
-    try:
-        state["pinecone_manager"] = PineconeManager()
-        print("PineconeManager initialized successfully.")
-    except Exception as e:
-        print(f"FATAL: PineconeManager failed to initialize: {e}", file=sys.stderr)
-
     try:
         state["gcs_manager"] = GCSManager()
         print("GCSManager initialized successfully.")
     except Exception as e:
         print(f"FATAL: GCSManager failed to initialize: {e}", file=sys.stderr)
-
-    # LLM Handler is now stateless, no need to initialize here.
 
     print("Application startup: Initialization sequence complete.")
     
@@ -150,10 +123,9 @@ def process_and_index_file(file_name: str, content_type: str, doc_type: str):
     temp_file_path = f"temp_{file_name}"
     try:
         gcs_manager = state.get("gcs_manager")
-        pinecone_manager = state.get("pinecone_manager")
         
-        if not all([gcs_manager, pinecone_manager]):
-            print(f"BACKGROUND_TASK_ERROR: One or more service managers were not available during startup. Aborting task for {file_name}.")
+        if gcs_manager is None:
+            print(f"BACKGROUND_TASK_ERROR: GCS Manager not available. Aborting task for {file_name}.")
             return
 
         print(f"BACKGROUND_TASK_STEP: Downloading {file_name} from GCS...")
@@ -189,7 +161,7 @@ async def notify_upload(request: NotifyUploadRequest, background_tasks: Backgrou
     This endpoint returns immediately and processing happens in the background.
     """
     get_manager("gcs_manager")
-    get_manager("pinecone_manager")
+    # Pinecone is stateless, no manager to get.
 
     background_tasks.add_task(
         process_and_index_file,
@@ -205,11 +177,8 @@ async def get_documents():
     Retrieves a list of all documents from the vector database.
     """
     try:
-        pinecone_manager = get_manager("pinecone_manager")
         documents = pinecone_manager.list_documents()
         return documents
-    except HTTPException as http_exc:
-        raise http_exc
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -219,7 +188,6 @@ async def delete_document(file_name: str):
     Deletes a document and all its associated vectors from Pinecone.
     """
     try:
-        pinecone_manager = get_manager("pinecone_manager")
         pinecone_manager.delete_document(file_name)
         gcs_manager = get_manager("gcs_manager")
         gcs_manager.delete_file(file_name)
@@ -244,8 +212,6 @@ async def query_documents(query: str = Form(...),
 
     async def stream_generator() -> AsyncGenerator[str, None]:
         try:
-            pinecone_manager = get_manager("pinecone_manager")
-            
             query_result = pinecone_manager.query_index(query, file_names=file_names if file_names else None)
             context_chunks = query_result.get("chunks", [])
             source_documents = query_result.get("sources", [])
