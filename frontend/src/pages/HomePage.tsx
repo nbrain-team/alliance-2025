@@ -148,7 +148,7 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
             </ScrollArea>
             
             <Box style={{ 
-                padding: '1rem', 
+                padding: '1.5rem 1rem', 
                 borderTop: '1px solid var(--gray-4)', 
                 backgroundColor: 'white'
             }}>
