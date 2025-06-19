@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api';
-import { Checkbox, IconButton } from '@radix-ui/themes';
-import { TrashIcon } from '@radix-ui/react-icons';
+import { Checkbox, IconButton, Button } from '@radix-ui/themes';
+import { TrashIcon, ChevronLeftIcon, ChevronRightIcon } from '@radix-ui/react-icons';
 import axios from 'axios';
 
 // Define an interface for the document structure
@@ -21,6 +21,9 @@ const KnowledgeBase = () => {
     const [query, setQuery] = useState('');
     const [queryResponse, setQueryResponse] = useState('');
     const [uploadStatus, setUploadStatus] = useState('');
+    const [searchTerm, setSearchTerm] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const docsPerPage = 10;
 
     // --- Data Fetching ---
     const { data: documents = [], isLoading: isLoadingDocs } = useQuery<Document[]>({
@@ -30,6 +33,20 @@ const KnowledgeBase = () => {
             return response.data;
         }
     });
+
+    // --- Derived State for Filtering and Pagination ---
+    const filteredDocuments = useMemo(() => {
+        return documents.filter(doc => 
+            doc.name.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    }, [documents, searchTerm]);
+
+    const paginatedDocuments = useMemo(() => {
+        const startIndex = (currentPage - 1) * docsPerPage;
+        return filteredDocuments.slice(startIndex, startIndex + docsPerPage);
+    }, [filteredDocuments, currentPage, docsPerPage]);
+
+    const totalPages = Math.ceil(filteredDocuments.length / docsPerPage);
 
     // --- Mutations ---
     const uploadMutation = useMutation({
@@ -223,7 +240,18 @@ const KnowledgeBase = () => {
 
                 <section className="library-section">
                     <h2>Document Library</h2>
-                    <input type="text" id="library-search-input" className="search-input" placeholder="Search library..." style={{ backgroundColor: 'white', marginBottom: '1.5rem' }} />
+                    <input 
+                        type="text" 
+                        id="library-search-input" 
+                        className="search-input" 
+                        placeholder="Search library by name..." 
+                        style={{ backgroundColor: 'white', marginBottom: '1.5rem' }}
+                        value={searchTerm}
+                        onChange={e => {
+                            setSearchTerm(e.target.value);
+                            setCurrentPage(1); // Reset to first page on new search
+                        }}
+                    />
                     <table id="document-table">
                         <thead>
                             <tr>
@@ -237,8 +265,8 @@ const KnowledgeBase = () => {
                         <tbody>
                             {isLoadingDocs ? (
                                 <tr><td colSpan={5}>Loading documents...</td></tr>
-                            ) : (
-                                documents.map(doc => (
+                            ) : paginatedDocuments.length > 0 ? (
+                                paginatedDocuments.map(doc => (
                                     <tr 
                                         key={doc.name} 
                                         onClick={() => handleDocSelectionChange(doc.name, !selectedDocs.includes(doc.name))}
@@ -275,10 +303,36 @@ const KnowledgeBase = () => {
                                         </td>
                                     </tr>
                                 ))
+                            ) : (
+                                <tr><td colSpan={5}>No documents found.</td></tr>
                             )}
                         </tbody>
                     </table>
-                     <form onSubmit={handleQuerySubmit}>
+                    {totalPages > 1 && (
+                        <div className="pagination-controls">
+                            <Button 
+                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                disabled={currentPage === 1}
+                                variant="soft"
+                            >
+                                <ChevronLeftIcon /> Previous
+                            </Button>
+                            <span>
+                                Page {currentPage} of {totalPages}
+                            </span>
+                            <Button 
+                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                disabled={currentPage === totalPages}
+                                variant="soft"
+                            >
+                                Next <ChevronRightIcon />
+                            </Button>
+                        </div>
+                    )}
+                </section>
+
+                <section className="query-section">
+                    <form onSubmit={handleQuerySubmit}>
                         <div className="query-area">
                             <h3>Query Selected Documents</h3>
                             <div className="query-controls">
@@ -444,13 +498,27 @@ const STYLES = `
     
     .search-input {
         width: 100%;
-        padding: 0.6rem 0.8rem;
-        font-size: 1rem;
-        border: 1px solid var(--border);
+        padding: 0.75rem 1rem;
         border-radius: 8px;
-        box-sizing: border-box;
+        border: 1px solid var(--border);
+        font-size: 1rem;
+        transition: border-color 0.2s, box-shadow 0.2s;
     }
-
+    .search-input:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-translucent);
+    }
+    .pagination-controls {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 1.5rem;
+        padding: 1rem;
+        background-color: var(--table-header-bg);
+        border-radius: 0 0 12px 12px;
+        border-top: 1px solid var(--border);
+    }
     .query-area {
         margin-top: 2rem;
         border-top: 1px solid var(--border);
