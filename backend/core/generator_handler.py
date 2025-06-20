@@ -16,7 +16,7 @@ The final output should ONLY be the personalized text. Do not add any extra gree
 
 async def process_csv_and_generate_content(
     csv_file: io.BytesIO,
-    mappings: dict,
+    key_fields: list[str],
     core_content: str,
     tone: str,
     style: str,
@@ -47,25 +47,40 @@ async def process_csv_and_generate_content(
         for index, row in target_df.iterrows():
             logger.info(f"Processing row {index + 1}/{total_rows}")
             
-            # Construct the detailed prompt for this specific row
-            row_data_str = ", ".join([f"{mappings.get(col, col)}: '{val}'" for col, val in row.items()])
+            # Step 1: Perform direct replacement for key fields
+            temp_content = core_content
+            for field in key_fields:
+                placeholder = f"{{{{{field}}}}}"
+                if placeholder in temp_content and field in row:
+                    temp_content = temp_content.replace(placeholder, str(row[field]))
             
+            # Step 2: Prepare contextual data for the AI
+            # Exclude key_fields from the context to avoid redundancy
+            contextual_data = {k: v for k, v in row.items() if k not in key_fields}
+            context_str = ", ".join([f"{k}: '{v}'" for k, v in contextual_data.items()])
+            
+            # Step 3: Construct the new, more intelligent prompt
             prompt = f"""
-Core Content to Personalize:
----
-{core_content}
----
-
-Data for this Individual:
----
-{row_data_str}
----
-
 Your Task:
-Rewrite the 'Core Content' for this specific individual using their data.
-- The tone of your writing must be: {tone}
+You are an expert copywriter. Your goal is to rewrite and personalize the 'Smart Template' below.
+Use the 'Contextual Data' provided to make the message highly relevant to the recipient.
+Do NOT simply list the data. Instead, weave the information naturally into the template to make it sound personal and compelling.
+Maintain the core message and offer of the original template.
+
+**Contextual Data for This Prospect:**
+---
+{context_str}
+---
+
+**Smart Template to Personalize:**
+---
+{temp_content}
+---
+
+**Instructions:**
+- The final tone of your writing must be: {tone}
 - The final output style must be a: {style}
-- IMPORTANT: The output should ONLY be the final rewritten text. Do not include any of your own commentary, greetings, or sign-offs.
+- IMPORTANT: The output should ONLY be the final rewritten text. Do not add any of your own commentary, greetings, or sign-offs.
 """
             
             messages = [

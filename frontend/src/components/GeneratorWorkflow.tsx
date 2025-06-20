@@ -1,4 +1,4 @@
-import { Box, Card, Text, Button, Flex, TextField, TextArea, Select, Spinner } from '@radix-ui/themes';
+import { Box, Card, Text, Button, Flex, TextField, TextArea, Select, Spinner, Checkbox, Heading, Grid } from '@radix-ui/themes';
 import { UploadIcon, DownloadIcon } from '@radix-ui/react-icons';
 import { useState } from 'react';
 import Papa from 'papaparse';
@@ -42,7 +42,7 @@ const FileInput = ({ onFileSelect, disabled }: { onFileSelect: (file: File) => v
 export const GeneratorWorkflow = () => {
     const [csvFile, setCsvFile] = useState<File | null>(null);
     const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
-    const [mappings, setMappings] = useState<Record<string, string>>({});
+    const [keyFields, setKeyFields] = useState<string[]>([]);
     const [currentStep, setCurrentStep] = useState(1);
     const [coreContent, setCoreContent] = useState('');
     const [tone, setTone] = useState('Professional');
@@ -60,20 +60,18 @@ export const GeneratorWorkflow = () => {
             complete: (results: Papa.ParseResult<Record<string, unknown>>) => {
                 if (results.meta.fields) {
                     setCsvHeaders(results.meta.fields);
-                    // Pre-fill mappings for convenience
-                    const initialMappings = results.meta.fields.reduce((acc: Record<string, string>, field: string) => {
-                        acc[field] = `{{${field.replace(/\s+/g, '_')}}}`;
-                        return acc;
-                    }, {} as Record<string, string>);
-                    setMappings(initialMappings);
+                    // Reset key fields on new file upload
+                    setKeyFields([]);
                     setCurrentStep(2);
                 }
             }
         });
     };
 
-    const handleMappingChange = (header: string, value: string) => {
-        setMappings(prev => ({ ...prev, [header]: value }));
+    const handleKeyFieldChange = (header: string, checked: boolean) => {
+        setKeyFields(prev =>
+            checked ? [...prev, header] : prev.filter(f => f !== header)
+        );
     };
     
     const handleGenerate = async (isPreview: boolean) => {
@@ -88,7 +86,7 @@ export const GeneratorWorkflow = () => {
 
         const formData = new FormData();
         formData.append('file', csvFile);
-        formData.append('mappings', JSON.stringify(mappings));
+        formData.append('key_fields', JSON.stringify(keyFields));
         formData.append('core_content', coreContent);
         formData.append('tone', tone);
         formData.append('style', style);
@@ -141,35 +139,36 @@ export const GeneratorWorkflow = () => {
                 {/* Step 2: Map Columns */}
                 {currentStep >= 2 && (
                     <Box>
-                        <Text as="label" weight="bold" size="3" mb="1" style={{ display: 'block' }}>
-                            Step 2: Map Your Data
-                        </Text>
+                        <Heading as="h2" size="4" mb="1">
+                            Step 2: Identify Key Fields for Direct Replacement
+                        </Heading>
                         <Text as="p" size="2" color="gray" mb="3">
-                            Define the placeholders you'll use in your content template.
+                            Select fields for simple placeholder replacement (e.g., `{{FirstName}}`). The AI will use all other fields as context to intelligently rewrite the rest.
                         </Text>
-                        <Flex direction="column" gap="3">
+                        <Grid columns="3" gap="3">
                             {csvHeaders.map(header => (
-                                <Flex key={header} align="center" gap="3">
-                                    <Text size="2" style={{ width: '150px' }}>{header}</Text>
-                                    <TextField.Root 
-                                        value={mappings[header] || ''}
-                                        onChange={(e) => handleMappingChange(header, e.target.value)}
-                                        style={{ flex: 1 }}
-                                    />
-                                </Flex>
+                                <Text as="label" size="2" key={header}>
+                                    <Flex gap="2" align="center">
+                                        <Checkbox
+                                            checked={keyFields.includes(header)}
+                                            onCheckedChange={(checked) => handleKeyFieldChange(header, checked as boolean)}
+                                        />
+                                        {header}
+                                    </Flex>
+                                </Text>
                             ))}
-                        </Flex>
+                        </Grid>
                     </Box>
                 )}
 
                 {/* Step 3: Create Content */}
                 {currentStep >= 2 && (
                     <Box>
-                        <Text as="label" weight="bold" size="3" mb="1" style={{ display: 'block' }}>
-                            Step 3: Create Your Content
-                        </Text>
+                        <Heading as="h2" size="4" mb="1" mt="4">
+                            Step 3: Write Your Smart Template
+                        </Heading>
                         <Text as="p" size="2" color="gray" mb="3">
-                            Write your core message using the placeholders you defined above.
+                            Write your core message. Use placeholders for the Key Fields you selected above.
                         </Text>
                         <TextArea
                             placeholder="e.g., Hi {{FirstName}}, I saw you work at {{Company}}. I'd love to connect..."
@@ -213,11 +212,11 @@ export const GeneratorWorkflow = () => {
                 {/* Step 4: Preview Content */}
                 {currentStep >= 4 && previewContent && (
                     <Box>
-                        <Text as="label" weight="bold" size="3" mb="1" style={{ display: 'block' }}>
+                        <Heading as="h2" size="4" mb="1" mt="4">
                             Step 4: Preview First Result
-                        </Text>
+                        </Heading>
                         <Text as="p" size="2" color="gray" mb="3">
-                            This is the generated content for the first row of your data.
+                            This is the AI-personalized content for the first row of your data.
                         </Text>
                         <Card variant="surface" style={{ padding: '1rem', whiteSpace: 'pre-wrap' }}>
                             <Text as="p" size="2">{previewContent}</Text>
@@ -233,9 +232,9 @@ export const GeneratorWorkflow = () => {
                 {/* Step 5: Download */}
                 {currentStep === 5 && finalCsv && (
                      <Box>
-                        <Text as="label" weight="bold" size="3" mb="1" style={{ display: 'block' }}>
+                        <Heading as="h2" size="4" mb="1" mt="4">
                             Step 5: Download Your File
-                        </Text>
+                        </Heading>
                         <Text as="p" size="2" color="gray" mb="3">
                            Your file is ready. Click the button below to download it.
                         </Text>

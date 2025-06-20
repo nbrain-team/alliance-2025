@@ -274,14 +274,16 @@ async def delete_document(file_name: str):
 @app.post("/generator/process")
 async def generator_process(
     file: UploadFile = File(...),
-    mappings: str = Form(...),
+    key_fields: str = Form(...),
     core_content: str = Form(...),
     tone: str = Form(...),
     style: str = Form(...),
     is_preview: str = Form(...) # Comes in as a string
 ):
     try:
-        mappings_dict = json.loads(mappings)
+        # The 'key_fields' field is a JSON string of a list
+        key_fields_list = json.loads(key_fields)
+
         csv_buffer = io.BytesIO(await file.read())
         
         # Convert string 'true'/'false' to boolean
@@ -289,11 +291,11 @@ async def generator_process(
 
         df = await generator_handler.process_csv_and_generate_content(
             csv_file=csv_buffer,
-            mappings=mappings_dict,
+            key_fields=key_fields_list,
             core_content=core_content,
             tone=tone,
             style=style,
-            is_preview=is_preview_bool  # Pass the boolean to the handler
+            is_preview=is_preview_bool
         )
         
         if is_preview_bool:
