@@ -32,22 +32,15 @@ const HistoryPage = () => {
     };
 
     return (
-        <Flex direction="column" style={{ height: '100vh' }}>
-            <Flex justify="between" align="center" style={{
-                padding: '1rem',
-                borderBottom: '1px solid var(--gray-4)',
-                backgroundColor: 'white',
-                position: 'sticky',
-                top: 0,
-                zIndex: 1
-            }}>
-                <Heading size="6" style={{ color: 'var(--gray-12)' }}>Chat History</Heading>
-                <IconButton onClick={handleLogout} variant="ghost" color="gray" style={{ cursor: 'pointer' }}>
-                    <PersonIcon width="22" height="22" />
-                </IconButton>
-            </Flex>
+        <Flex direction="column" style={{ height: '100vh', backgroundColor: 'var(--gray-1)' }}>
+             <Box style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--gray-4)', backgroundColor: 'white' }}>
+                <Heading size="7" style={{ color: 'var(--gray-12)' }}>Chat History</Heading>
+                <Text as="p" size="3" style={{ color: 'var(--gray-10)', marginTop: '0.25rem' }}>
+                    Review and search past conversations.
+                </Text>
+            </Box>
 
-            <Box style={{ flex: 1, padding: '1rem', overflowY: 'auto' }}>
+            <Box style={{ flex: 1, padding: '2rem', overflowY: 'auto' }}>
                 {isLoading && (
                     <Flex justify="center" align="center" style={{ height: '100%' }}>
                         <Spinner size="3" />
