@@ -12,8 +12,7 @@ import { PersonIcon } from '@radix-ui/react-icons';
 interface Message {
   text: string;
   sender: 'user' | 'ai';
-  // Allow sources to be flexible to avoid build errors from App.tsx
-  sources?: (string | { source: string })[];
+  sources?: { source: string }[];
 }
 
 interface HomePageProps {
@@ -133,10 +132,9 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
                             {msg.sender === 'ai' && msg.sources && msg.sources.length > 0 && (
                                 <div className="citations">
                                     <span className="citation-title">Sources:</span>
-                                    {msg.sources.map((source, i) => {
-                                        const sourceText = typeof source === 'string' ? source : source.source;
-                                        return <span key={i} className="citation-source">{sourceText}</span>;
-                                    })}
+                                    {msg.sources.map((source, i) => (
+                                        <span key={i} className="citation-source">{source.source}</span>
+                                    ))}
                                 </div>
                             )}
                         </div>
