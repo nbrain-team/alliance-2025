@@ -111,15 +111,41 @@ def migrate_data(db: Session):
         logger.error(f"Migration failed: {e}", exc_info=True)
         raise # Re-raise the exception to ensure the transaction in the caller is rolled back
 
+def update_db_schema(db: Session):
+    """
+    Checks the database schema and applies any necessary updates.
+    This is a lightweight, temporary solution for schema migration.
+    """
+    logger.info("Checking database schema for necessary updates...")
+    inspector = inspect(db.get_bind())
+    
+    # Check for 'is_active' column in 'users' table
+    try:
+        users_columns = [c['name'] for c in inspector.get_columns('users')]
+        if 'is_active' not in users_columns:
+            logger.info("Column 'is_active' not found in 'users' table. Adding it now.")
+            # Use a default value for existing rows to avoid issues.
+            db.execute(text('ALTER TABLE users ADD COLUMN is_active BOOLEAN DEFAULT TRUE'))
+            logger.info("Successfully added 'is_active' column to 'users' table.")
+    except Exception as e:
+        # This can happen if the 'users' table doesn't exist yet, which is fine.
+        logger.info(f"Could not check 'users' table, likely because it does not exist yet. Will be created shortly. Details: {e}")
 
 @app.on_event("startup")
 def on_startup():
     logger.info("Application startup: Initializing database...")
     db = SessionLocal()
     try:
+        # 1. Create tables. This is idempotent and safe to run every time.
         Base.metadata.create_all(bind=db.get_bind())
         logger.info("Database tables checked/created.")
+        
+        # 2. Update schema. This is a lightweight migration for missing columns.
+        update_db_schema(db)
+
+        # 3. Migrate data from old tables if they exist.
         migrate_data(db)
+        
         db.commit()
     except Exception as e:
         logger.error(f"An error occurred during startup: {e}", exc_info=True)
