@@ -13,7 +13,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 interface Message {
   text: string;
   sender: 'user' | 'ai';
-  sources?: string[]; // Make sources optional here too
+  sources?: (string | { source: string })[];
 }
 
 // Create a client
