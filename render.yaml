@@ -32,3 +32,5 @@ services:
         sync: false
       - key: GOOGLE_APPLICATION_CREDENTIALS
         sync: false
+      - key: SECRET_KEY
+        sync: false
