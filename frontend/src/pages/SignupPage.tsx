@@ -26,7 +26,8 @@ const SignupPage = () => {
     };
 
     return (
-        <Flex align="center" justify="center" style={{ height: '100vh', backgroundColor: 'var(--gray-2)' }}>
+        <Flex direction="column" align="center" justify="center" gap="5" style={{ height: '100vh', backgroundColor: 'var(--gray-2)' }}>
+            <img src="/new-icons/adtv-logo.png" alt="ADTV Logo" style={{ maxWidth: '250px' }} />
             <Card style={{ width: 400, padding: '2rem' }}>
                 <Heading align="center" mb="5">Create an Account</Heading>
                 <form onSubmit={handleSubmit}>

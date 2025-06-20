@@ -50,10 +50,10 @@ const LandingPage = () => {
                         className="module-card" 
                         onClick={() => navigate(module.path)}
                     >
-                        <Flex direction="column" align="center" gap="3" style={{ textAlign: 'center' }}>
+                        <Flex direction="column" align="center" gap="3">
                             <img src={module.icon} alt={`${module.title} icon`} style={{ width: '40px', height: '40px' }} />
                             <Heading size="4" style={{ textAlign: 'center' }}>{module.title}</Heading>
-                            <Text as="p" size="2" color="gray">{module.description}</Text>
+                            <Text as="p" size="2" color="gray" style={{ textAlign: 'center' }}>{module.description}</Text>
                         </Flex>
                     </Card>
                 ))}
