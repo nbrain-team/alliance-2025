@@ -25,5 +25,10 @@ services:
       - key: PYTHON_VERSION
         value: "3.11.0"
       - key: PINECONE_API_KEY
+        sync: false
       - key: PINECONE_INDEX_NAME
+        sync: false
       - key: GEMINI_API_KEY
+        sync: false
+      - key: GOOGLE_APPLICATION_CREDENTIALS
+        sync: false
