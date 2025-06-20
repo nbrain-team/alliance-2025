@@ -9,6 +9,7 @@ import { MainLayout } from './components/MainLayout';
 import { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import GeneratorPage from './pages/GeneratorPage';
+import LandingPage from './pages/LandingPage';
 
 // Define the structure for a message
 interface Message {
@@ -48,8 +49,15 @@ function AppRoutes() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
+
+        {/* New home page without sidebar */}
+        <Route path="/home" element={
+            <ProtectedRoute>
+                <LandingPage />
+            </ProtectedRoute>
+        } />
         
-        {/* Routes within the main layout */}
+        {/* All other authenticated routes get the sidebar via MainLayout */}
         <Route path="/*" element={
           isAuthenticated ? (
             <MainLayout onNewChat={() => setMessages([])}>
@@ -57,11 +65,9 @@ function AppRoutes() {
                 <Route path="/" element={<HomePage messages={messages} setMessages={setMessages} />} />
                 <Route path="/knowledge" element={<KnowledgeBase />} />
                 <Route path="/generator" element={<GeneratorPage />} />
-                <Route path="/history" element={
-                  <ProtectedRoute>
-                    <HistoryPage />
-                  </ProtectedRoute>
-                } />
+                <Route path="/history" element={<HistoryPage />} />
+                {/* Redirect any other nested path to the chat page */}
+                <Route path="*" element={<Navigate to="/" />} />
               </Routes>
             </MainLayout>
           ) : <Navigate to="/login" />

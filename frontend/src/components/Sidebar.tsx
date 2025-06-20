@@ -27,7 +27,9 @@ export const Sidebar = ({ onNewChat }: { onNewChat: () => void }) => {
                 zIndex: 100
             }}
         >
-            <img src="/new-icons/1.png" alt="ADTV Logo" style={{ width: '60px', height: '60px', marginBottom: '1rem' }} />
+            <button className="sidebar-icon" title="Home" onClick={() => navigate('/home')} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
+                <img src="/new-icons/1.png" alt="ADTV Logo" style={{ width: '60px', height: '60px', marginBottom: '1rem' }} />
+            </button>
             
             <Flex direction="column" align="center" gap="8" style={{ marginTop: '125px' }}>
                 <button className="sidebar-icon" title="New Chat" onClick={handleNewChatClick}>
