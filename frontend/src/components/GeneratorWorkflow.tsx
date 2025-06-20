@@ -51,6 +51,9 @@ export const GeneratorWorkflow = () => {
     const [previewContent, setPreviewContent] = useState('');
     const [finalCsv, setFinalCsv] = useState<string | null>(null);
 
+    const openBraces = '{{';
+    const closeBraces = '}}';
+
     const handleFileSelect = (file: File) => {
         setCsvFile(file);
         Papa.parse(file, {
@@ -135,7 +138,7 @@ export const GeneratorWorkflow = () => {
         }
     };
 
-    const placeholderText = "Example: Hi {{FirstName}}, I saw you work at {{CompanyName}} and wanted to reach out...";
+    const placeholderText = `Example: Hi ${openBraces}FirstName${closeBraces}, I saw you work at ${openBraces}CompanyName${closeBraces} and wanted to reach out...`;
 
     return (
         <Card>
@@ -155,7 +158,7 @@ export const GeneratorWorkflow = () => {
                     <Box>
                         <Heading as="h2" size="4" mb="1" mt="4">Step 2: Select Key Fields</Heading>
                         <Text as="p" size="2" color="gray" mb="3">
-                            These fields will be used for direct replacements (e.g., `{{FirstName}}`). All other columns will be used by the AI as context.
+                            {`These fields will be used for direct replacements (e.g., \`${openBraces}FirstName${closeBraces}\`). All other columns will be used by the AI as context.`}
                         </Text>
                         <Grid columns={{ initial: '1', sm: '2', md: '3' }} gap="3">
                             {csvHeaders.map(header => (
