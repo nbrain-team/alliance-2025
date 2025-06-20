@@ -135,6 +135,8 @@ export const GeneratorWorkflow = () => {
         }
     };
 
+    const placeholderText = "Example: Hi {{FirstName}}, I saw you work at {{CompanyName}} and wanted to reach out...";
+
     return (
         <Card>
             <Flex direction="column" gap="4">
@@ -181,7 +183,7 @@ export const GeneratorWorkflow = () => {
                             Write your core message. Use placeholders for the Key Fields you selected above.
                         </Text>
                         <TextArea
-                            placeholder="Example: Hi {{FirstName}}, I saw you work at {{CompanyName}} and wanted to reach out..."
+                            placeholder={placeholderText}
                             value={coreContent}
                             onChange={(e) => setCoreContent(e.target.value)}
                             rows={10}
