@@ -43,7 +43,7 @@ function App() {
 function AppRoutes() {
   const [messages, setMessages] = useState<Message[]>([]);
   const { isAuthenticated } = useAuth();
-
+  // Forcing a new build with a dummy comment
   return (
     <Router>
       <Routes>
