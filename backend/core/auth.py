@@ -4,7 +4,7 @@ from typing import Optional
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from dotenv import load_dotenv
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Request
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
@@ -20,7 +20,28 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7 # One week
 
 # --- Password Hashing ---
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# This remains for the /login endpoint which uses a form
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
+
+async def get_token(request: Request):
+    """
+    Custom dependency to extract JWT token from either the Authorization header
+    or a query parameter named 'token'. This provides a fallback for clients
+    or situations (like event streams) where headers might be tricky.
+    """
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        return auth_header.split(" ")[1]
+
+    token_param = request.query_params.get("token")
+    if token_param:
+        return token_param
+    
+    # If we get here, no token was found in either location.
+    # We will let get_current_active_user handle the final exception
+    # for cases where no token is needed, but this return prevents a crash.
+    return None
 
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
@@ -53,7 +74,7 @@ def authenticate_user(db: Session, email: str, password: str) -> database.User |
     return user
 
 def get_current_active_user(
-    token: str = Depends(oauth2_scheme), 
+    token: str | None = Depends(get_token), 
     db: Session = Depends(database.get_db)
 ) -> database.User:
     credentials_exception = HTTPException(
@@ -61,6 +82,9 @@ def get_current_active_user(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    if token is None:
+        raise credentials_exception
+
     payload = decode_access_token(token)
     if payload is None:
         raise credentials_exception

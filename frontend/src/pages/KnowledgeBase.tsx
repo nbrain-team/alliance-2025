@@ -102,11 +102,10 @@ const KnowledgeBase = () => {
             const { query, file_names } = variables;
             const token = localStorage.getItem('token');
 
-            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/chat/stream`, {
+            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/chat/stream?token=${token}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
                 },
                 body: JSON.stringify({
                     query,
