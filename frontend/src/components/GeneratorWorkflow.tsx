@@ -1,4 +1,4 @@
-import { Box, Card, Text, Button, Flex, TextField, TextArea, Select, Spinner, Checkbox, Heading, Grid } from '@radix-ui/themes';
+import { Box, Card, Text, Button, Flex, TextArea, Select, Spinner, Checkbox, Heading, Grid } from '@radix-ui/themes';
 import { UploadIcon, DownloadIcon } from '@radix-ui/react-icons';
 import { useState } from 'react';
 import Papa from 'papaparse';
@@ -171,7 +171,7 @@ export const GeneratorWorkflow = () => {
                             Write your core message. Use placeholders for the Key Fields you selected above.
                         </Text>
                         <TextArea
-                            placeholder="e.g., Hi {{FirstName}}, I saw you work at {{Company}}. I'd love to connect..."
+                            placeholder="Write your smart template here..."
                             value={coreContent}
                             onChange={(e) => setCoreContent(e.target.value)}
                             rows={10}
