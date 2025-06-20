@@ -11,7 +11,7 @@ const GeneratorPage = () => {
                 </Text>
             </Box>
 
-            <Box style={{ padding: '2rem' }}>
+            <Box style={{ padding: '2rem', flex: 1, overflowY: 'auto' }}>
                 <GeneratorWorkflow />
             </Box>
         </Flex>
