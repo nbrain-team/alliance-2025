@@ -71,60 +71,61 @@ app = FastAPI(
 )
 
 # --- Migration Logic ---
-def migrate_data():
+def migrate_data(db: Session):
     """
     One-time migration of data from old chat_conversations to chat_sessions.
     This is designed to handle schemas pre- and post-authentication.
+    It now accepts a db session to run within an existing transaction.
     """
-    inspector = inspect(engine)
+    inspector = inspect(db.get_bind())
     if not inspector.has_table("chat_conversations") or not inspector.has_table("chat_sessions"):
         logger.info("Skipping migration: One or both tables do not exist.")
         return
 
-    db = SessionLocal()
     try:
-        # Use a single connection for the transaction
-        with db.connection() as connection:
-            with connection.begin(): # Start a transaction
-                result = connection.execute(text("SELECT COUNT(*) FROM chat_conversations"))
-                count = result.scalar_one_or_none()
+        # The transaction is now managed by the caller (on_startup)
+        result = db.execute(text("SELECT COUNT(*) FROM chat_conversations"))
+        count = result.scalar_one_or_none()
 
-                if count == 0:
-                    logger.info("'chat_conversations' is empty. Dropping old table.")
-                    connection.execute(text('DROP TABLE chat_conversations'))
-                    return
-                
-                logger.info(f"Found {count} records in 'chat_conversations'. Attempting migration.")
-                cols = [c['name'] for c in inspector.get_columns('chat_conversations')]
+        if count == 0:
+            logger.info("'chat_conversations' is empty. Dropping old table.")
+            db.execute(text('DROP TABLE chat_conversations'))
+            return
+        
+        logger.info(f"Found {count} records in 'chat_conversations'. Attempting migration.")
+        cols = [c['name'] for c in inspector.get_columns('chat_conversations')]
 
-                # This is a key part: if the old table has no user_id, it can't be migrated
-                # to the new table which requires it. We just rename it and move on.
-                if 'user_id' not in cols:
-                    logger.warning("Skipping migration: 'user_id' column not found in old table. Renaming table.")
-                    connection.execute(text('ALTER TABLE chat_conversations RENAME TO chat_conversations_pre_auth'))
-                else:
-                    # If user_id exists, we can migrate the data.
-                    connection.execute(text("""
-                        INSERT INTO chat_sessions (id, title, created_at, messages, user_id)
-                        SELECT id, title, created_at, messages, user_id FROM chat_conversations
-                        ON CONFLICT (id) DO NOTHING
-                    """))
-                    logger.info("Migration successful. Renaming old table to prevent re-runs.")
-                    connection.execute(text('ALTER TABLE chat_conversations RENAME TO chat_conversations_migrated'))
-
+        if 'user_id' not in cols:
+            logger.warning("Skipping migration: 'user_id' column not found in old table. Renaming table.")
+            db.execute(text('ALTER TABLE chat_conversations RENAME TO chat_conversations_pre_auth'))
+        else:
+            db.execute(text("""
+                INSERT INTO chat_sessions (id, title, created_at, messages, user_id)
+                SELECT id, title, created_at, messages, user_id FROM chat_conversations
+                ON CONFLICT (id) DO NOTHING
+            """))
+            logger.info("Migration successful. Renaming old table to prevent re-runs.")
+            db.execute(text('ALTER TABLE chat_conversations RENAME TO chat_conversations_migrated'))
+            
     except Exception as e:
         logger.error(f"Migration failed: {e}", exc_info=True)
-        # The transaction will be rolled back automatically by the 'with' statement on exception
-    finally:
-        db.close()
+        raise # Re-raise the exception to ensure the transaction in the caller is rolled back
 
 
 @app.on_event("startup")
 def on_startup():
     logger.info("Application startup: Initializing database...")
-    Base.metadata.create_all(bind=engine)
-    logger.info("Database tables checked/created.")
-    migrate_data()
+    db = SessionLocal()
+    try:
+        Base.metadata.create_all(bind=db.get_bind())
+        logger.info("Database tables checked/created.")
+        migrate_data(db)
+        db.commit()
+    except Exception as e:
+        logger.error(f"An error occurred during startup: {e}", exc_info=True)
+        db.rollback()
+    finally:
+        db.close()
 
 # --- CORS Middleware ---
 app.add_middleware(
