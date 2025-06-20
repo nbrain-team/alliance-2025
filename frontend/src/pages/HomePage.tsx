@@ -1,4 +1,4 @@
-import { Box, Flex, Text, ScrollArea, IconButton } from '@radix-ui/themes';
+import { Box, Flex, Text, ScrollArea, IconButton, Heading } from '@radix-ui/themes';
 import { CommandCenter } from '../components/CommandCenter';
 import { useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
@@ -109,16 +109,12 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
 
     return (
         <Flex direction="column" style={{ height: '100vh', backgroundColor: 'var(--gray-1)' }}>
-            <Flex justify="between" align="center" style={{
-                padding: '1rem',
-                borderBottom: '1px solid var(--gray-4)',
-                backgroundColor: 'white'
-            }}>
-                <Text size="5" weight="bold" style={{ color: 'var(--gray-12)' }}>ADTV AI Assistant</Text>
-                <IconButton onClick={handleLogout} variant="ghost" color="gray" style={{ cursor: 'pointer' }}>
-                    <PersonIcon width="22" height="22" />
-                </IconButton>
-            </Flex>
+            <Box style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--gray-4)', backgroundColor: 'white' }}>
+                <Heading size="7" style={{ color: 'var(--gray-12)' }}>AI Chat</Heading>
+                <Text as="p" size="3" style={{ color: 'var(--gray-10)', marginTop: '0.25rem' }}>
+                    Ask questions and get answers from your internal knowledge base, powered by AI.
+                </Text>
+            </Box>
 
             <ScrollArea style={{ flex: 1, padding: '1rem', width: '100%' }}>
                 <Box style={{ maxWidth: '1000px', margin: '0' }}>

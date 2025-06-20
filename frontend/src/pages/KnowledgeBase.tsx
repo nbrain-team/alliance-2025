@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api';
-import { Checkbox, IconButton, Button, Flex, Heading } from '@radix-ui/themes';
+import { Checkbox, IconButton, Button, Flex, Heading, Text, Box } from '@radix-ui/themes';
 import { TrashIcon, ChevronLeftIcon, ChevronRightIcon, PersonIcon } from '@radix-ui/react-icons';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -214,24 +214,12 @@ const KnowledgeBase = () => {
         <Flex direction="column" style={{ height: '100vh' }}>
             <style>{STYLES}</style>
             
-            {/* --- Header --- */}
-            <Flex
-                justify="between"
-                align="center"
-                style={{
-                    padding: '1rem',
-                    borderBottom: '1px solid var(--gray-4)',
-                    backgroundColor: 'white',
-                    position: 'sticky',
-                    top: 0,
-                    zIndex: 1
-                }}
-            >
-                <Heading size="6" style={{ color: 'var(--gray-12)'}}>Knowledge Base</Heading>
-                <IconButton onClick={handleLogout} variant="ghost" color="gray" style={{ cursor: 'pointer' }}>
-                    <PersonIcon width="22" height="22" />
-                </IconButton>
-            </Flex>
+            <Box style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--gray-4)', backgroundColor: 'white',  position: 'sticky', top: 0, zIndex: 1 }}>
+                <Heading size="7" style={{ color: 'var(--gray-12)' }}>Knowledge Base</Heading>
+                <Text as="p" size="3" style={{ color: 'var(--gray-10)', marginTop: '0.25rem' }}>
+                    Search and manage the documents that power the AI chat.
+                </Text>
+            </Box>
 
             {/* --- Main Content --- */}
             <div className="knowledge-base-container" style={{ flex: 1, overflowY: 'auto' }}>
