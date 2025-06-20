@@ -8,11 +8,11 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { PersonIcon } from '@radix-ui/react-icons';
 
-// Define the structure for a message
+// Make this interface flexible to avoid conflict with App.tsx
 interface Message {
   text: string;
   sender: 'user' | 'ai';
-  sources?: string[];
+  sources?: (string | { source: string })[];
 }
 
 interface HomePageProps {
@@ -132,9 +132,10 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
                             {msg.sender === 'ai' && msg.sources && msg.sources.length > 0 && (
                                 <div className="citations">
                                     <span className="citation-title">Sources:</span>
-                                    {msg.sources.map((source, i) => (
-                                        <span key={i} className="citation-source">{source}</span>
-                                    ))}
+                                    {msg.sources.map((source, i) => {
+                                        const sourceText = typeof source === 'string' ? source : source.source;
+                                        return <span key={i} className="citation-source">{sourceText}</span>
+                                    })}
                                 </div>
                             )}
                         </div>
