@@ -1,39 +1,39 @@
 import { Box, Card, Text, Button, Flex, TextArea, Select, Spinner, Checkbox, Heading, Grid } from '@radix-ui/themes';
 import { UploadIcon, DownloadIcon } from '@radix-ui/react-icons';
-import { useState } from 'react';
+import { useState, useRef, ChangeEvent } from 'react';
 import Papa from 'papaparse';
 
 // A modern, reusable file input component
 const FileInput = ({ onFileSelect, disabled }: { onFileSelect: (file: File) => void, disabled: boolean }) => {
-    const [fileName, setFileName] = useState<string | null>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
 
-    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const handleClick = () => {
+        inputRef.current?.click();
+    };
+
+    const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (file) {
-            setFileName(file.name);
             onFileSelect(file);
         }
     };
 
     return (
         <Box>
-            <label htmlFor="csv-upload" style={{ cursor: 'pointer' }}>
-                <Button asChild variant="soft">
-                    <span>
-                        <UploadIcon width="16" height="16" />
-                        Select CSV File
-                    </span>
-                </Button>
-            </label>
             <input
                 type="file"
-                id="csv-upload"
                 accept=".csv"
+                ref={inputRef}
                 onChange={handleFileChange}
                 style={{ display: 'none' }}
                 disabled={disabled}
             />
-            {fileName && <Text as="span" size="2" color="gray" style={{ marginLeft: '1rem' }}>{fileName}</Text>}
+            <Button onClick={handleClick} disabled={disabled} style={{ width: '100%', cursor: disabled ? 'not-allowed' : 'pointer' }}>
+                <Flex align="center" gap="2">
+                    <UploadIcon />
+                    <Text>Upload CSV</Text>
+                </Flex>
+            </Button>
         </Box>
     );
 };
@@ -90,7 +90,10 @@ export const GeneratorWorkflow = () => {
         formData.append('core_content', coreContent);
         formData.append('tone', tone);
         formData.append('style', style);
-        formData.append('is_preview', String(isPreview));
+        
+        if (isPreview) {
+            formData.append('preview', 'true');
+        }
 
         try {
             const response = await fetch('/api/generator/process', {
@@ -99,26 +102,36 @@ export const GeneratorWorkflow = () => {
             });
 
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.detail || 'Something went wrong');
+                const errorText = await response.text();
+                throw new Error(`Network response was not ok: ${errorText}`);
             }
-
+            
             if (isPreview) {
                 const data = await response.json();
                 setPreviewContent(data.preview_content);
-                setCurrentStep(4); // Move to preview step
             } else {
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                setFinalCsv(url); // Set the URL for the download button
-                setCurrentStep(5); // Move to download step
+                const data = await response.json();
+                setFinalCsv(data.csv_content);
+                setCurrentStep(5);
             }
-
         } catch (error) {
-            console.error('Generation failed:', error);
-            alert(`Error: ${(error as Error).message}`);
+            console.error('There was a problem with the fetch operation:', error);
+            alert(`An error occurred during generation: ${error instanceof Error ? error.message : String(error)}`);
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const handleDownload = () => {
+        if (finalCsv) {
+            const blob = new Blob([finalCsv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', 'personalized_output.csv');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
     };
 
@@ -127,25 +140,22 @@ export const GeneratorWorkflow = () => {
             <Flex direction="column" gap="4">
                 {/* Step 1: Upload */}
                 <Box>
-                    <Text as="label" weight="bold" size="3" mb="1" style={{ display: 'block' }}>
-                        Step 1: Upload Your Prospect List
-                    </Text>
+                    <Heading as="h2" size="4" mb="1">Step 1: Upload Your Data</Heading>
                     <Text as="p" size="2" color="gray" mb="3">
-                        Upload a CSV file containing your prospect data. The file must contain headers.
+                        Upload a CSV file with your customer data. Make sure it has a header row.
                     </Text>
                     <FileInput onFileSelect={handleFileSelect} disabled={currentStep > 1} />
+                    {csvFile && <Text mt="2" size="2" color="green">File selected: {csvFile.name}</Text>}
                 </Box>
 
                 {/* Step 2: Map Columns */}
                 {currentStep >= 2 && (
                     <Box>
-                        <Heading as="h2" size="4" mb="1">
-                            Step 2: Identify Key Fields for Direct Replacement
-                        </Heading>
+                        <Heading as="h2" size="4" mb="1" mt="4">Step 2: Select Key Fields</Heading>
                         <Text as="p" size="2" color="gray" mb="3">
-                            Select fields for simple placeholder replacement (e.g., `{{FirstName}}`). The AI will use all other fields as context to intelligently rewrite the rest.
+                            These fields will be used for direct replacements (e.g., `{{FirstName}}`). All other columns will be used by the AI as context.
                         </Text>
-                        <Grid columns="3" gap="3">
+                        <Grid columns={{ initial: '1', sm: '2', md: '3' }} gap="3">
                             {csvHeaders.map(header => (
                                 <Text as="label" size="2" key={header}>
                                     <Flex gap="2" align="center">
@@ -160,7 +170,7 @@ export const GeneratorWorkflow = () => {
                         </Grid>
                     </Box>
                 )}
-
+                
                 {/* Step 3: Create Content */}
                 {currentStep >= 2 && (
                     <Box>
@@ -171,7 +181,7 @@ export const GeneratorWorkflow = () => {
                             Write your core message. Use placeholders for the Key Fields you selected above.
                         </Text>
                         <TextArea
-                            placeholder="Write your smart template here..."
+                            placeholder="Example: Hi {{FirstName}}, I saw you work at {{CompanyName}} and wanted to reach out..."
                             value={coreContent}
                             onChange={(e) => setCoreContent(e.target.value)}
                             rows={10}
@@ -186,7 +196,6 @@ export const GeneratorWorkflow = () => {
                                         <Select.Item value="Professional">Professional</Select.Item>
                                         <Select.Item value="Casual">Casual</Select.Item>
                                         <Select.Item value="Enthusiastic">Enthusiastic</Select.Item>
-                                        <Select.Item value="Direct">Direct</Select.Item>
                                     </Select.Content>
                                 </Select.Root>
                             </Box>
@@ -196,54 +205,41 @@ export const GeneratorWorkflow = () => {
                                     <Select.Trigger />
                                     <Select.Content>
                                         <Select.Item value="Paragraph">Paragraph</Select.Item>
-                                        <Select.Item value="Bulleted List">Bulleted List</Select.Item>
+                                        <Select.Item value="Bullet Points">Bullet Points</Select.Item>
                                     </Select.Content>
                                 </Select.Root>
                             </Box>
                         </Flex>
-                        <Flex justify="end" mt="4">
-                            <Button onClick={() => handleGenerate(true)} disabled={isLoading}>
-                                {isLoading ? <Spinner /> : 'Generate Preview'}
-                            </Button>
-                        </Flex>
+                        <Button onClick={() => handleGenerate(true)} disabled={isLoading || !coreContent} mt="3">
+                            {isLoading ? <Spinner /> : 'Preview First Row'}
+                        </Button>
                     </Box>
                 )}
 
-                {/* Step 4: Preview Content */}
-                {currentStep >= 4 && previewContent && (
+                {/* Step 4: Preview */}
+                {previewContent && (
                     <Box>
-                        <Heading as="h2" size="4" mb="1" mt="4">
-                            Step 4: Preview First Result
-                        </Heading>
-                        <Text as="p" size="2" color="gray" mb="3">
-                            This is the AI-personalized content for the first row of your data.
-                        </Text>
-                        <Card variant="surface" style={{ padding: '1rem', whiteSpace: 'pre-wrap' }}>
-                            <Text as="p" size="2">{previewContent}</Text>
+                        <Heading as="h2" size="4" mb="1" mt="4">Step 4: Preview</Heading>
+                        <Card>
+                            <Text size="2">{previewContent}</Text>
                         </Card>
-                        <Flex justify="end" mt="4">
-                            <Button onClick={() => handleGenerate(false)} disabled={isLoading}>
-                                {isLoading ? <Spinner /> : 'Looks Good! Generate & Download Full CSV'}
-                            </Button>
-                        </Flex>
+                        <Button onClick={() => handleGenerate(false)} disabled={isLoading} mt="3">
+                            {isLoading ? <Spinner /> : 'Looks Good! Generate Full CSV'}
+                        </Button>
                     </Box>
                 )}
 
                 {/* Step 5: Download */}
                 {currentStep === 5 && finalCsv && (
-                     <Box>
-                        <Heading as="h2" size="4" mb="1" mt="4">
-                            Step 5: Download Your File
-                        </Heading>
+                    <Box>
+                        <Heading as="h2" size="4" mb="1" mt="4">Step 5: Download Your File</Heading>
                         <Text as="p" size="2" color="gray" mb="3">
-                           Your file is ready. Click the button below to download it.
+                            Your personalized CSV is ready.
                         </Text>
-                        <a href={finalCsv} download="ai_generated_content.csv" style={{ textDecoration: 'none' }}>
-                            <Button>
-                                <DownloadIcon />
-                                Download CSV
-                            </Button>
-                        </a>
+                        <Button onClick={handleDownload}>
+                            <DownloadIcon />
+                            Download Personalized CSV
+                        </Button>
                     </Box>
                 )}
             </Flex>
