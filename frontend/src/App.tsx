@@ -8,6 +8,7 @@ import SignupPage from './pages/SignupPage';
 import { MainLayout } from './components/MainLayout';
 import { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import GeneratorPage from './pages/GeneratorPage';
 
 // Define the structure for a message
 interface Message {
@@ -54,7 +55,8 @@ function AppRoutes() {
             <MainLayout onNewChat={() => setMessages([])}>
               <Routes>
                 <Route path="/" element={<HomePage messages={messages} setMessages={setMessages} />} />
-                <Route path="/knowledge-base" element={<KnowledgeBase />} />
+                <Route path="/knowledge" element={<KnowledgeBase />} />
+                <Route path="/generator" element={<GeneratorPage />} />
                 <Route path="/history" element={
                   <ProtectedRoute>
                     <HistoryPage />

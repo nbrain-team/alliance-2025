@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Form, BackgroundTasks, UploadFile, File, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, Response
 from typing import List, Optional, AsyncGenerator
 from pydantic import BaseModel, Field, EmailStr
 from dotenv import load_dotenv
@@ -9,6 +9,7 @@ import sys
 import json
 import uuid
 import tempfile
+import io
 from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordRequestForm
 import logging
@@ -16,7 +17,7 @@ from sqlalchemy import inspect, text
 from datetime import datetime
 from fastapi.concurrency import run_in_threadpool
 
-from core import pinecone_manager, llm_handler, processor, auth
+from core import pinecone_manager, llm_handler, processor, auth, generator_handler
 from core.database import Base, get_db, engine, User, ChatSession, SessionLocal
 
 load_dotenv()
@@ -62,6 +63,12 @@ class Token(BaseModel):
 
 class UrlList(BaseModel):
     urls: List[str]
+
+class GeneratorRequest(BaseModel):
+    mappings: dict
+    core_content: str
+    tone: str
+    style: str
 
 # --- App Initialization ---
 app = FastAPI(
@@ -263,6 +270,53 @@ async def delete_document(file_name: str):
     except Exception as e:
         logger.error(f"Error deleting document {file_name}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/generator/process")
+async def generator_process(
+    file: UploadFile = File(...),
+    mappings: str = Form(...),
+    core_content: str = Form(...),
+    tone: str = Form(...),
+    style: str = Form(...),
+    is_preview: str = Form(...) # Comes in as a string
+):
+    try:
+        mappings_dict = json.loads(mappings)
+        csv_buffer = io.BytesIO(await file.read())
+        
+        # Convert string 'true'/'false' to boolean
+        is_preview_bool = is_preview.lower() == 'true'
+
+        df = await generator_handler.process_csv_and_generate_content(
+            csv_file=csv_buffer,
+            mappings=mappings_dict,
+            core_content=core_content,
+            tone=tone,
+            style=style,
+            is_preview=is_preview_bool  # Pass the boolean to the handler
+        )
+        
+        if is_preview_bool:
+            # For a preview, return the first generated content as JSON
+            preview_content = df['ai_generated_content'].iloc[0] if not df.empty else ""
+            return {"preview_content": preview_content}
+        else:
+            # For a full run, return the entire CSV as a downloadable file
+            output_buffer = io.StringIO()
+            df.to_csv(output_buffer, index=False)
+            output_buffer.seek(0)
+            
+            return Response(
+                content=output_buffer.getvalue(),
+                media_type="text/csv",
+                headers={"Content-Disposition": "attachment; filename=ai_generated_content.csv"}
+            )
+
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        logger.error(f"Error in generator processing: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="An internal error occurred during file processing.")
 
 # This is a standalone function to be called from the stream
 def save_chat_history_sync(

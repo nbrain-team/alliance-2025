@@ -5,8 +5,8 @@ export const Sidebar = ({ onNewChat }: { onNewChat: () => void }) => {
     const navigate = useNavigate();
 
     const handleNewChatClick = () => {
-        onNewChat();
         navigate('/');
+        onNewChat();
     };
 
     return (
@@ -39,8 +39,8 @@ export const Sidebar = ({ onNewChat }: { onNewChat: () => void }) => {
                 <button className="sidebar-icon" title="Knowledge Base" onClick={() => navigate('/knowledge-base')}>
                     <img src="/new-icons/4.png" alt="Upload" />
                 </button>
-                <button className="sidebar-icon" title="Icon 7">
-                    <img src="/new-icons/7.png" alt="Icon 7" />
+                <button className="sidebar-icon" title="AI Generator" onClick={() => navigate('/generator')}>
+                    <img src="/new-icons/7.png" alt="AI Generator" />
                 </button>
                 <button className="sidebar-icon" title="Icon 3">
                     <img src="/new-icons/3.png" alt="Icon 3" />
