@@ -34,3 +34,7 @@ services:
         sync: false
       - key: SECRET_KEY
         sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: PINECONE_ENVIRONMENT
+        sync: false

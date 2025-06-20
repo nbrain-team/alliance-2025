@@ -7,15 +7,18 @@ from typing import List
 # --- Environment Setup ---
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
 PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME")
+PINECONE_ENV = os.getenv("PINECONE_ENVIRONMENT")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 EMBEDDING_MODEL_NAME = "models/embedding-001"
 EMBEDDING_DIMENSION = 768
 
 def _get_pinecone_index():
     """Initializes and returns a Pinecone index client."""
-    if not PINECONE_API_KEY or not PINECONE_INDEX_NAME:
-        raise ValueError("Pinecone API key or index name not set in environment.")
-    pc = Pinecone(api_key=PINECONE_API_KEY)
+    if not PINECONE_API_KEY or not PINECONE_INDEX_NAME or not PINECONE_ENV:
+        raise ValueError("Pinecone API key, index name, or environment not set in environment.")
+    
+    pc = Pinecone(api_key=PINECONE_API_KEY, environment=PINECONE_ENV)
+    
     # Note: We are now assuming the index exists and is configured correctly.
     # The volatile startup process should not be creating/validating indexes.
     return pc.Index(PINECONE_INDEX_NAME)
@@ -46,7 +49,7 @@ def upsert_chunks(chunks: List[str], metadata: dict):
         texts=chunks,
         embedding=embeddings,
         metadatas=docs_with_metadata,
-        index_name=PINECONE_INDEX_NAME
+        index_name=os.getenv("PINECONE_INDEX_NAME")
     )
 
 def list_documents():
