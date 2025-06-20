@@ -40,7 +40,7 @@ async def stream_answer(query: str, matches: list, history: List[Dict[str, str]]
     llm = ChatGoogleGenerativeAI(
         model="gemini-1.5-pro",
         google_api_key=os.environ["GEMINI_API_KEY"],
-        max_output_tokens=16384,
+        max_output_tokens=8192,
         temperature=0.7
     )
 
