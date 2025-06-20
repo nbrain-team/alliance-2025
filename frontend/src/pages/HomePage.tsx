@@ -12,7 +12,7 @@ import { PersonIcon } from '@radix-ui/react-icons';
 interface Message {
   text: string;
   sender: 'user' | 'ai';
-  sources?: { source: string }[];
+  sources?: string[];
 }
 
 interface HomePageProps {
@@ -133,7 +133,7 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
                                 <div className="citations">
                                     <span className="citation-title">Sources:</span>
                                     {msg.sources.map((source, i) => (
-                                        <span key={i} className="citation-source">{source.source}</span>
+                                        <span key={i} className="citation-source">{source}</span>
                                     ))}
                                 </div>
                             )}
