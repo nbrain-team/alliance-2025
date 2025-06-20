@@ -323,21 +323,22 @@ async def chat_stream(req: ChatRequest, current_user: User = Depends(auth.get_cu
         chat_id = str(uuid.uuid4()) # Generate a single ID for the entire conversation
 
         try:
-            generator = llm_handler.get_response_stream(req.query, req.history)
+            # First, query the index to get relevant documents
+            matches = pinecone_manager.query_index(req.query, top_k=5)
+            source_documents = [{"source": m.get('metadata', {}).get('source')} for m in matches]
+
+            # Now, stream the answer from the LLM with context
+            generator = llm_handler.stream_answer(req.query, matches, req.history)
             
             async for chunk in generator:
-                if "content" in chunk and chunk["content"]:
-                    content_chunk = chunk["content"]
-                    full_response += content_chunk
-                    yield f"data: {json.dumps({'content': content_chunk, 'chatId': chat_id})}\n\n"
-                
-                if "sources" in chunk and chunk["sources"]:
-                    source_documents = chunk["sources"]
+                # The generator from llm_handler now only yields content strings
+                full_response += chunk
+                yield f"data: {json.dumps({'content': chunk, 'chatId': chat_id, 'sources': source_documents})}\n\n"
 
             if full_response:
                 history_messages = req.history + [
                     {"text": req.query, "sender": "user"},
-                    {"text": full_response, "sender": "ai", "sources": source_documents}
+                    {"text": full_response, "sender": "ai", "sources": [s['source'] for s in source_documents if s['source']]}
                 ]
                 
                 pydantic_messages = [ChatMessage(**msg) for msg in history_messages]
