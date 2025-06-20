@@ -52,7 +52,7 @@ const LandingPage = () => {
                     >
                         <Flex direction="column" align="center" gap="3" style={{ textAlign: 'center' }}>
                             <img src={module.icon} alt={`${module.title} icon`} style={{ width: '40px', height: '40px' }} />
-                            <Heading align="center" size="4">{module.title}</Heading>
+                            <Heading size="4" style={{ textAlign: 'center' }}>{module.title}</Heading>
                             <Text as="p" size="2" color="gray">{module.description}</Text>
                         </Flex>
                     </Card>
