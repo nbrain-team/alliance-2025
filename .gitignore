@@ -114,4 +114,12 @@ yarn-error.log*
 # Frontend
 frontend/node_modules
 frontend/dist
-frontend/.vite 
+frontend/.vite
+
+# dotenv environment variables file
+*.env
+*.env.*
+!*.env.example
+
+# Log files
+# ... existing code ... 
