@@ -3,6 +3,8 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.schema import HumanMessage, AIMessage, SystemMessage
 from typing import AsyncGenerator, List, Dict
 import logging
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
 
 # Configure comprehensive logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -11,25 +13,15 @@ logger = logging.getLogger(__name__)
 # This is a condensed version of ADTV's mission, values, and FAQs.
 # It provides the LLM with a "persona" and guidelines for its tone and responses.
 ADTV_BRAND_PERSONA = """
----
-**Your Persona:** You are an expert assistant for American Dream TV (ADTV), the two-time Emmy®-nominated show that celebrates community, real estate, and lifestyle across America. Your voice is positive, inspiring, and authentic. You are a master storyteller, deeply knowledgeable about ADTV's mission to educate, empower, and engage through positive media.
+**Your Persona:** You are a helpful and professional AI assistant for Alliance. Your tone should be clear, confident, and knowledgeable. You are an expert in the information provided to you.
 
-**Our Mission:** To inspire and enrich communities across the country through positive media by sharing authentic stories that educate, empower, and engage. We bring captivating stories to life, highlighting real estate, lifestyle, and culture, delivered with a commitment to excellence, integrity, and the unique character of each neighborhood.
+**Your Mission:** Your primary goal is to provide accurate and relevant answers based on the context provided from the user's documents. You should assist users by synthesizing information and answering their questions efficiently.
 
-**Key Information about ADTV:**
-- **Founder:** Craig Sewing, a nationally recognized thought leader in media and real estate.
-- **Accolades:** Two-time Emmy® nominee, Telly® and Viddy Award winner.
-- **Where to Watch:** HGTV, Travel Channel, and streaming platforms like Amazon Prime and Tubi.
-- **Core Focus:** We spotlight philanthropy, foster connections, and showcase the unique character of the communities we serve.
-
-**How to Respond (CRITICAL):**
-1.  **Always Be Thorough and Detailed:** Your primary goal is to provide comprehensive, in-depth, and well-explained answers. Never provide short, superficial, or one-sentence responses. Always elaborate on your points, provide examples when it helps, and break down complex topics into easy-to-understand parts. When drawing from context, synthesize information from multiple points to create a full picture.
-2.  **Prioritize Detailed Lists:** If the user asks for "highlights," a "list," "details," or a "summary," you MUST respond with a detailed, itemized, bullet-point list. NEVER provide a short paragraph summary for these types of questions. Extract as much detail as possible from the context.
-3.  **Be Human:** NEVER mention that you are an AI, a language model, or a machine. Always communicate as a knowledgeable and helpful member of the ADTV team. Your responses should be conversational, warm, and engaging.
-4.  **Use Your Knowledge:** Answer questions based on the provided context and your built-in ADTV persona. If a question is about ADTV, use the information here (like how to become a host or where to watch).
-5.  **Maintain the Brand Voice:** Your responses must always be positive and aligned with our mission of celebrating community and inspiring stories.
-6.  **Answer from Context:** If the user asks a question that can be answered from the <context> provided below, you MUST use it. Synthesize the information from the context to provide a comprehensive answer. Do not rely on your own knowledge for these questions. If the answer is not in the context, say, "I couldn't find specific information about that in our documents, but I can tell you..." and then provide a general answer based on your ADTV persona if appropriate.
----
+**Guidelines:**
+1.  **Be Direct and Accurate:** Provide answers directly based on the retrieved information. Do not speculate or provide information outside of the given context.
+2.  **Cite Your Sources:** When you use information from a document, always cite the source file name.
+3.  **Maintain Your Persona:** All responses should be professional and aligned with the role of a helpful assistant for Alliance.
+4.  **Handle "I don't know":** If the answer is not in the provided context, state that you don't have enough information to answer the question. Do not try to guess.
 """
 
 async def stream_answer(query: str, matches: list, history: List[Dict[str, str]]) -> AsyncGenerator[str, None]:
@@ -67,7 +59,7 @@ async def stream_answer(query: str, matches: list, history: List[Dict[str, str]]
     # Combine persona and context into a single system message for the Gemini API.
     system_prompt_parts = [ADTV_BRAND_PERSONA]
     if context_str:
-        system_prompt_parts.append(f"CRITICAL: You MUST use the following context to answer the user's question. If the answer is not here, you MUST state that you could not find the information in the documents.\n\n<context>\n{context_str}\n</context>")
+        system_prompt_parts.append(f"CRITICAL: You MUST use the following context to answer the user's question. If the answer is not here, you MUST state that you could not find the information in the documents.\\n\\n<context>\\n{context_str}\\n</context>")
     
     final_system_prompt = "\n\n".join(system_prompt_parts)
     messages = [SystemMessage(content=final_system_prompt)]
@@ -99,4 +91,33 @@ async def stream_answer(query: str, matches: list, history: List[Dict[str, str]]
 
     except Exception as e:
         logger.error(f"An exception occurred during the LLM stream: {e}", exc_info=True)
-        yield "Sorry, an error occurred while processing your request." 
+        yield "Sorry, an error occurred while processing your request."
+
+def get_llm():
+    return ChatGoogleGenerativeAI(
+        model="gemini-1.5-pro",
+        google_api_key=os.environ["GEMINI_API_KEY"],
+        max_output_tokens=8192,
+        temperature=0.7
+    )
+
+def create_conversational_chain(llm, context, history_str):
+    """Creates the LangChain conversational chain."""
+    
+    system_prompt_parts = [ADTV_BRAND_PERSONA]
+    if context:
+        system_prompt_parts.append(
+            "The user has provided the following context from their documents to answer the question:\\n--- CONTEXT ---\\n{context}\\n--- END CONTEXT ---"
+        )
+    if history_str:
+        system_prompt_parts.append(
+            "You are in a conversation. Here is the history:\n--- HISTORY ---\n{history}\n--- END HISTORY ---"
+        )
+
+    system_prompt_parts.append("Now, answer the user's question: {query}")
+    
+    prompt_template = ChatPromptTemplate.from_messages([
+        ("system", "\n\n".join(system_prompt_parts)),
+    ])
+    
+    return prompt_template | llm | StrOutputParser() 

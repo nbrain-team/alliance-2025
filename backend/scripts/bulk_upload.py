@@ -62,7 +62,7 @@ def upload_file(file_path: str, doc_type: str = "transcription"):
         return False
 
 def main():
-    parser = argparse.ArgumentParser(description="Bulk upload text files to the ADTV Knowledge Base.")
+    parser = argparse.ArgumentParser(description="Bulk upload text files to the Alliance Knowledge Base.")
     parser.add_argument("folder_path", type=str, help="The full path to the folder containing the transcription files.")
     args = parser.parse_args()
 

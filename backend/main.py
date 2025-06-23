@@ -72,8 +72,8 @@ class GeneratorRequest(BaseModel):
 
 # --- App Initialization ---
 app = FastAPI(
-    title="ADTV RAG API",
-    description="API for ADTV's Retrieval-Augmented Generation platform.",
+    title="Alliance RAG API",
+    description="API for the Alliance Retrieval-Augmented Generation platform.",
     version="0.2.2",
 )
 
@@ -171,7 +171,7 @@ app.add_middleware(
 
 @app.get("/")
 def read_root():
-    return {"status": "ADTV RAG API is running"}
+    return {"status": "Alliance RAG API is running"}
 
 # --- Background Processing ---
 def process_and_index_files(temp_file_paths: List[str], original_file_names: List[str]):

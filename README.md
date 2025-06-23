@@ -1,6 +1,6 @@
-# ADTV AI Platform
+# Alliance AI Platform
 
-This project is a centralized, scalable AI platform that can process and retrieve brand knowledge from videos, documents, and customer Q&A logs, using RAG (Retrieval-Augmented Generation), MCP-style orchestration, and Gemini Pro 2.5. The system will allow internal users to query, learn from, and eventually act on company-specific information.
+This project is a Retrieval-Augmented Generation (RAG) platform designed to provide intelligent, context-aware responses from a custom knowledge base.
 
 ## 🚀 Goal
 

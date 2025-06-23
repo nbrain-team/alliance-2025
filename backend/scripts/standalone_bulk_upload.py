@@ -1,5 +1,5 @@
 """
-Standalone Bulk Upload Script for ADTV
+Standalone Bulk Upload Script for Alliance
 
 This script is designed to be run locally to process a directory of video files
 and upload them directly to a Pinecone index. It is self-contained and does
@@ -178,11 +178,11 @@ def main(directory_path: str, doc_type: str):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Standalone bulk upload script for ADTV.",
-        formatter_class=argparse.RawTextHelpFormatter # To preserve formatting in help text
+        description="Standalone bulk upload script for Alliance.",
+        formatter_class=argparse.RawTextHelpFormatter
     )
-    parser.add_argument("directory", type=str, help="The path to the directory containing your video files.")
+    parser.add_argument("folder_path", type=str, help="The full path to the folder containing the files to upload.")
     parser.add_argument("--doc_type", type=str, default="Bulk Video Upload", help="The 'Document Type' to assign to these videos.")
     
     args = parser.parse_args()
-    main(args.directory, args.doc_type) 
+    main(args.folder_path, args.doc_type) 
