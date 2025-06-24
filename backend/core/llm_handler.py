@@ -1,11 +1,13 @@
 import os
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.schema import HumanMessage, AIMessage, SystemMessage
-from typing import AsyncGenerator, List, Dict
+from typing import AsyncGenerator, List, Dict, Optional
 import logging
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 import json
+from fastapi.concurrency import run_in_threadpool
+from . import pinecone_manager
 
 # Configure comprehensive logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -41,6 +43,35 @@ User's Question:
 JSON Array of Sub-Questions:
 """
 
+SYNTHESIS_PROMPT_TEMPLATE = """
+You are a Senior Financial Analyst AI. Your task is to provide a comprehensive, expert-level answer to the user's original question based on the evidence gathered from a series of sub-questions.
+
+**User's Original Question:**
+{original_query}
+
+**Evidence Gathered (from document sources):**
+{evidence}
+
+**Instructions:**
+1.  Review all the evidence provided.
+2.  Construct a final, synthesized response that directly answers the user's original question.
+3.  Do not just list the evidence; analyze it, compare and contrast findings, and identify patterns or key insights.
+4.  For every piece of information you use, you MUST cite its source document, which is provided with each piece of evidence (e.g., "[Source: document_name.pdf]").
+5.  If the evidence for a sub-question was insufficient or not found, explicitly state that in your analysis.
+6.  Ensure your final output is well-structured, clear, and meets the standards of an experienced financial professional.
+
+**Final Synthesized Report:**
+"""
+
+def get_llm():
+    return ChatGoogleGenerativeAI(
+        model="gemini-1.5-pro",
+        google_api_key=os.environ["GEMINI_API_KEY"],
+        max_output_tokens=8192,
+        temperature=0.7,
+        streaming=True
+    )
+
 async def decompose_query_to_sub_questions(query: str, llm: ChatGoogleGenerativeAI) -> List[str]:
     """
     Uses the LLM to break down a complex user query into a list of simpler sub-questions.
@@ -52,16 +83,21 @@ async def decompose_query_to_sub_questions(query: str, llm: ChatGoogleGenerative
         ("human", query)
     ])
     
-    chain = prompt | llm | StrOutputParser()
+    # Temporarily disable streaming for this specific, non-streaming call
+    non_streaming_llm = ChatGoogleGenerativeAI(
+        model="gemini-1.5-pro",
+        google_api_key=os.environ["GEMINI_API_KEY"],
+        max_output_tokens=1024, # Smaller limit for decomposition
+        temperature=0.0 # Low temp for deterministic output
+    )
+
+    chain = prompt | non_streaming_llm | StrOutputParser()
     
     try:
         response_str = await chain.ainvoke({"query": query})
         logger.info(f"Decomposition response from LLM: {response_str}")
         
-        # Clean the response to ensure it's valid JSON
-        # The model might sometimes include markdown backticks
         cleaned_response = response_str.strip().replace("```json", "").replace("```", "").strip()
-        
         sub_questions = json.loads(cleaned_response)
         
         if isinstance(sub_questions, list) and all(isinstance(q, str) for q in sub_questions):
@@ -71,89 +107,68 @@ async def decompose_query_to_sub_questions(query: str, llm: ChatGoogleGenerative
             logger.warning("Decomposition did not return a list of strings. Falling back to original query.")
             return [query]
             
-    except json.JSONDecodeError:
-        logger.error("Failed to decode JSON from decomposition response. Falling back to original query.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred during query decomposition: {e}", exc_info=True)
         return [query]
-    except Exception as e:
-        logger.error(f"An unexpected error occurred during query decomposition: {e}")
-        return [query] # Fallback to the original query in case of any error
 
-async def stream_answer(query: str, matches: list, history: List[Dict[str, str]]) -> AsyncGenerator[str, None]:
+async def run_agentic_rag_pipeline(
+    query: str, history: List[Dict[str, str]], properties: Optional[List[str]]
+) -> AsyncGenerator[Dict, None]:
     """
-    Generates an answer using the LLM based on the query, context, and chat history.
-    Initializes a new LLM client for each call to ensure stability.
+    Orchestrates the multi-step agentic RAG process.
     """
-    logger.info("Initializing new LLM client for this request.")
-    llm = ChatGoogleGenerativeAI(
-        model="gemini-1.5-pro",
-        google_api_key=os.environ["GEMINI_API_KEY"],
-        max_output_tokens=8192,
-        temperature=0.7
-    )
-
-    context_str = ""
-    if matches:
-        chunks_by_source = {}
-        for match in matches:
-            source = match.get('metadata', {}).get('source', 'Unknown Source')
-            text = match.get('metadata', {}).get('text', '')
-            if source not in chunks_by_source:
-                chunks_by_source[source] = []
-            chunks_by_source[source].append(text)
-
-        formatted_chunks = []
-        for source, texts in chunks_by_source.items():
-            source_header = f"--- Context from document: {source} ---"
-            source_content = "\n".join(f"- {text}" for text in texts)
-            formatted_chunks.append(f"{source_header}\n{source_content}")
+    logger.info("--- Starting Agentic RAG Pipeline ---")
+    llm = get_llm()
+    
+    # 1. Decompose the query
+    sub_questions = await decompose_query_to_sub_questions(query, llm)
+    
+    # 2. Gather evidence for each sub-question
+    evidence_list = []
+    all_sources = set()
+    
+    for i, sub_q in enumerate(sub_questions):
+        logger.info(f"Step {i+1}/{len(sub_questions)}: Retrieving context for sub-question: '{sub_q}'")
+        matches = await run_in_threadpool(
+            pinecone_manager.query_index,
+            query=sub_q,
+            top_k=5, # Retrieve 5 chunks per sub-question
+            properties=properties
+        )
         
-        context_str = "\n\n".join(formatted_chunks)
-    
-    # --- Construct the message history for the LLM ---
-    # Combine persona and context into a single system message for the Gemini API.
-    system_prompt_parts = [FINANCIAL_ANALYST_PERSONA]
-    if context_str:
-        system_prompt_parts.append(f"CRITICAL: You MUST use the following context to answer the user's question. If the answer is not here, you MUST state that you could not find the information in the documents.\\n\\n<context>\\n{context_str}\\n</context>")
-    
-    final_system_prompt = "\n\n".join(system_prompt_parts)
-    messages = [SystemMessage(content=final_system_prompt)]
-
-    # Add past conversation history
-    for message in history:
-        if message.get("sender") == "user":
-            messages.append(HumanMessage(content=message.get("text", "")))
-        elif message.get("sender") == "ai":
-            messages.append(AIMessage(content=message.get("text", "")))
-
-    # Add the current user query
-    messages.append(HumanMessage(content=query))
-    
-    logger.info(f"Querying LLM with query: '{query}' and {len(history)} previous messages.")
-    
-    logger.info("Streaming response from LLM...")
-    chunks_received = 0
-    try:
-        async for chunk in llm.astream(messages):
-            if chunk.content:
-                chunks_received += 1
-                yield chunk.content
+        context_for_q = ""
+        if matches:
+            sources = {m.get('metadata', {}).get('source', 'Unknown') for m in matches}
+            all_sources.update(sources)
+            # Format context with sources for the final prompt
+            texts_with_sources = [
+                f"{m.get('metadata', {}).get('text', '')} [Source: {m.get('metadata', {}).get('source', 'Unknown')}]"
+                for m in matches
+            ]
+            context_for_q = "\n".join(texts_with_sources)
         
-        if chunks_received == 0:
-            logger.warning("LLM stream finished but no content was received in any chunk.")
-        else:
-            logger.info(f"LLM stream finished. Total content chunks received: {chunks_received}")
+        evidence_list.append(f"Sub-Question: {sub_q}\nEvidence:\n{context_for_q if context_for_q else 'No relevant information found in documents.'}")
 
-    except Exception as e:
-        logger.error(f"An exception occurred during the LLM stream: {e}", exc_info=True)
-        yield "Sorry, an error occurred while processing your request."
+    # 3. Synthesize the final answer
+    logger.info("Synthesizing final answer from all gathered evidence.")
+    
+    synthesis_prompt = ChatPromptTemplate.from_template(SYNTHESIS_PROMPT_TEMPLATE)
+    
+    synthesis_chain = synthesis_prompt | llm | StrOutputParser()
+    
+    final_prompt_input = {
+        "original_query": query,
+        "evidence": "\n\n---\n\n".join(evidence_list)
+    }
 
-def get_llm():
-    return ChatGoogleGenerativeAI(
-        model="gemini-1.5-pro",
-        google_api_key=os.environ["GEMINI_API_KEY"],
-        max_output_tokens=8192,
-        temperature=0.7
-    )
+    # 4. Stream the final response
+    async for chunk in synthesis_chain.astream(final_prompt_input):
+        yield {"content": chunk}
+        
+    # 5. Yield the consolidated sources at the end
+    yield {"sources": list(all_sources)}
+    
+    logger.info("--- Agentic RAG Pipeline Finished ---")
 
 def create_conversational_chain(llm, context, history_str):
     """Creates the LangChain conversational chain."""
