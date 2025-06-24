@@ -23,12 +23,10 @@ const KnowledgeBase = () => {
     const [files, setFiles] = useState<FileList | null>(null);
     const [urls, setUrls] = useState('');
     const [selectedDocs, setSelectedDocs] = useState<string[]>([]);
-    const [query, setQuery] = useState('');
-    const [queryResponse, setQueryResponse] = useState('');
     const [uploadStatus, setUploadStatus] = useState('');
-    const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedProperty, setSelectedProperty] = useState<{ value: string; label: string; } | null>(null);
+    const [librarySelectedProperty, setLibrarySelectedProperty] = useState<{ value: string; label: string; } | null>(null);
     const docsPerPage = 10;
     const [isUploading, setIsUploading] = useState(false);
     const { logout } = useAuth();
@@ -36,27 +34,23 @@ const KnowledgeBase = () => {
 
     // --- Data Fetching ---
     const { data: documents = [], isLoading: isLoadingDocs } = useQuery<Document[]>({
-        queryKey: ['documents'],
+        queryKey: ['documents', librarySelectedProperty],
         queryFn: async () => {
-            const response = await api.get('/documents');
+            const property = librarySelectedProperty?.value;
+            const url = property ? `/documents?property=${encodeURIComponent(property)}` : '/documents';
+            const response = await api.get(url);
             return response.data;
         },
         refetchInterval: 30000, // Poll every 30 seconds
     });
 
     // --- Derived State for Filtering and Pagination ---
-    const filteredDocuments = useMemo(() => {
-        return documents.filter(doc => 
-            doc.name.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-    }, [documents, searchTerm]);
-
     const paginatedDocuments = useMemo(() => {
         const startIndex = (currentPage - 1) * docsPerPage;
-        return filteredDocuments.slice(startIndex, startIndex + docsPerPage);
-    }, [filteredDocuments, currentPage, docsPerPage]);
+        return documents.slice(startIndex, startIndex + docsPerPage);
+    }, [documents, currentPage, docsPerPage]);
 
-    const totalPages = Math.ceil(filteredDocuments.length / docsPerPage);
+    const totalPages = Math.ceil(documents.length / docsPerPage);
 
     // --- Mutations for Uploading ---
     const uploadFilesMutation = useMutation({
@@ -100,68 +94,6 @@ const KnowledgeBase = () => {
         },
     });
     
-    const queryMutation = useMutation({
-        mutationFn: async (variables: { query: string; file_names: string[] }) => {
-            const { query, file_names } = variables;
-            const token = localStorage.getItem('token');
-
-            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/chat/stream?token=${token}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    query,
-                    file_names,
-                    history: [], // Not using history in this context
-                }),
-            });
-
-            if (!response.ok) {
-                throw new Error(`Server responded with ${response.status}`);
-            }
-            if (!response.body) {
-                throw new Error("Response body is null");
-            }
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let fullResponse = '';
-
-            // Since this component doesn't stream to the UI yet, we'll collect the full response.
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                
-                const chunk = decoder.decode(value, { stream: true });
-                const lines = chunk.split('\n\n').filter(line => line.startsWith('data: '));
-
-                for (const line of lines) {
-                    const jsonStr = line.replace('data: ', '');
-                    try {
-                        if (jsonStr.trim() === '[DONE]') continue;
-                        const data = JSON.parse(jsonStr);
-                        if (data.content) {
-                            fullResponse += data.content;
-                        }
-                    } catch (e) {
-                        console.error('Failed to parse stream data chunk:', jsonStr);
-                    }
-                }
-            }
-            // For now, let's just return the text part of the final message.
-            // A more complete implementation would handle sources as well.
-            return fullResponse;
-        },
-        onSuccess: (data) => {
-            setQueryResponse(data);
-        },
-        onError: (error: any) => {
-            const errorMessage = error.message || "Query failed";
-            setQueryResponse(`Error: ${errorMessage}`);
-        },
-    });
-
     // --- Event Handlers ---
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFiles(e.target.files);
@@ -208,12 +140,6 @@ const KnowledgeBase = () => {
         }
     };
     
-    const handleQuerySubmit = (event: React.FormEvent) => {
-        event.preventDefault();
-        if (!query.trim() || selectedDocs.length === 0) return;
-        queryMutation.mutate({ query: query, file_names: selectedDocs });
-    };
-
     const handleLogout = () => {
         logout();
         navigate('/login');
@@ -302,18 +228,15 @@ const KnowledgeBase = () => {
 
                 <section className="library-section">
                     <h2>Document Library</h2>
-                    <input 
-                        type="text" 
-                        id="library-search-input" 
-                        className="search-input" 
-                        placeholder="Search library by name..." 
-                        style={{ backgroundColor: 'white', marginBottom: '1.5rem' }}
-                        value={searchTerm}
-                        onChange={e => {
-                            setSearchTerm(e.target.value);
-                            setCurrentPage(1); // Reset to first page on search
-                        }}
-                    />
+                    <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+                        <label>Select Property to View Documents</label>
+                        <Select
+                            options={[{ value: '', label: 'All Properties' }, ...properties.map(p => ({ value: p, label: p }))]}
+                            value={librarySelectedProperty}
+                            onChange={(selected) => setLibrarySelectedProperty(selected as any)}
+                            placeholder="Select a property to view its documents..."
+                        />
+                    </div>
                     <table id="document-table">
                         <thead>
                             <tr>
@@ -391,33 +314,6 @@ const KnowledgeBase = () => {
                             </Button>
                         </div>
                     )}
-                </section>
-
-                <section className="query-section">
-                    <form onSubmit={handleQuerySubmit}>
-                        <div className="query-area">
-                            <h3>Query Selected Documents</h3>
-                            <div className="query-controls">
-                                <input 
-                                    type="text" 
-                                    id="query-input" 
-                                    placeholder="Ask a question to the selected documents..." 
-                                    value={query}
-                                    onChange={e => setQuery(e.target.value)}
-                                />
-                                <button id="query-btn" type="submit" className="submit-btn" disabled={queryMutation.isPending || selectedDocs.length === 0}>
-                                    {queryMutation.isPending ? 'Asking...' : 'Ask'}
-                                </button>
-                            </div>
-                            <div id="query-response">
-                                {queryMutation.isPending ? (
-                                    <p>Thinking...</p>
-                                ) : (
-                                    <p>{queryResponse || 'Your answer will appear here...'}</p>
-                                )}
-                            </div>
-                        </div>
-                    </form>
                 </section>
             </div>
         </Flex>

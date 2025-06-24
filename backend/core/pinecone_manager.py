@@ -52,17 +52,26 @@ def upsert_chunks(chunks: List[str], metadata: dict):
         index_name=os.getenv("PINECONE_INDEX_NAME")
     )
 
-def list_documents():
+def list_documents(property: str = None):
     """
     Lists all unique documents in the Pinecone index.
+    If a property is provided, it filters for documents with that property.
     Initializes clients on-the-fly for stability.
     """
     try:
         index = _get_pinecone_index()
+        
+        filter_metadata = None
+        if property:
+            filter_metadata = {"property": property}
+
+        # Query a single vector to get a large set of results to inspect metadata
+        # This is a workaround since Pinecone doesn't have a direct "list all metadata" function
         results = index.query(
-            vector=[0] * EMBEDDING_DIMENSION,
-            top_k=1000,
-            include_metadata=True
+            vector=[0] * EMBEDDING_DIMENSION, # Dummy vector
+            top_k=1000, # Adjust K to be large enough to find all unique sources
+            include_metadata=True,
+            filter=filter_metadata
         )
         
         seen_files = set()

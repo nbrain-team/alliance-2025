@@ -260,9 +260,9 @@ async def crawl_urls(url_list: UrlList, background_tasks: BackgroundTasks = Back
     return {"message": f"Started crawling {len(url_list.urls)} URLs in the background."}
 
 @app.get("/documents")
-async def get_documents():
+async def get_documents(property: Optional[str] = None):
     try:
-        return pinecone_manager.list_documents()
+        return pinecone_manager.list_documents(property=property)
     except Exception as e:
         logger.error(f"Error listing documents: {e}")
         raise HTTPException(status_code=500, detail=str(e))
