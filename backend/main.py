@@ -372,43 +372,37 @@ async def get_chat_history(conversation_id: str, db: Session = Depends(get_db), 
 @app.post("/chat/stream")
 async def chat_stream(req: ChatRequest, current_user: User = Depends(auth.get_current_active_user)):
     """
-    Handles a chat request, generates a response, and streams it back to the client.
-    It uses the LLM handler to get a response and then formats it as a server-sent event stream.
+    Handles a chat request by invoking the agentic RAG pipeline and streaming the response.
     """
     async def stream_generator() -> AsyncGenerator[str, None]:
-        # This is the main async generator for the streaming response
         try:
-            # First, get the context from Pinecone based on the query
-            matches = await run_in_threadpool(
-                pinecone_manager.query_index,
+            # The entire agentic process is now handled by the llm_handler
+            llm_stream = llm_handler.run_agentic_rag_pipeline(
                 query=req.query,
-                top_k=5,
-                properties=req.properties
+                properties=req.properties,
+                history=req.history,
             )
-            context = " ".join([m['metadata']['text'] for m in matches])
-            sources = list(set([m['metadata']['source'] for m in matches]))
-            
-            # Use a separate async generator from the LLM handler
-            llm_stream = llm_handler.get_rag_response(req.query, req.history, context)
-            
-            # Stream the LLM response
-            full_response_text = ""
-            async for chunk in llm_stream:
-                full_response_text += chunk
-                response_data = {"content": chunk}
-                yield f"data: {json.dumps(response_data)}\n\n"
 
-            # Once the text stream is complete, send the sources
-            source_data = {"sources": sources}
-            yield f"data: {json.dumps(source_data)}\n\n"
+            full_response_text = ""
+            final_sources = []
+            async for chunk in llm_stream:
+                # The pipeline yields dictionaries. We need to check what they contain.
+                if "content" in chunk:
+                    full_response_text += chunk["content"]
+                    yield f"data: {json.dumps({'content': chunk['content']})}\n\n"
+                if "sources" in chunk:
+                    final_sources = chunk["sources"]
+                    # Don't send sources until the end
             
-            # Finally, signal the end of the stream
+            # Once the content stream is complete, send the consolidated sources
+            if final_sources:
+                yield f"data: {json.dumps({'sources': final_sources})}\n\n"
+
             yield "data: [DONE]\n\n"
             
         except Exception as e:
             logger.error(f"Error in chat stream: {e}", exc_info=True)
-            # Send an error message to the client
-            error_response = {"error": "An unexpected error occurred."}
+            error_response = {"error": "An unexpected error occurred in the agentic pipeline."}
             yield f"data: {json.dumps(error_response)}\n\n"
 
     return StreamingResponse(stream_generator(), media_type="text/event-stream")
