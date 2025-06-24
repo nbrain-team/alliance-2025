@@ -93,8 +93,7 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
             const reader = response.body!.getReader();
             const decoder = new TextDecoder();
             let aiResponse = '';
-            
-            setMessages(prev => [...prev, { text: '', sender: 'ai', sources: [] }]);
+            let isFirstChunk = true;
             
             while (true) {
                 const { done, value } = await reader.read();
@@ -104,6 +103,11 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
                 const eventLines = chunk.split('\n\n').filter(line => line.startsWith('data:'));
 
                 for (const line of eventLines) {
+                    if (isFirstChunk) {
+                        setMessages(prev => [...prev, { text: '', sender: 'ai', sources: [] }]);
+                        isFirstChunk = false;
+                    }
+
                     const jsonStr = line.substring(6);
                     if (jsonStr.trim() === '[DONE]') continue;
                     try {
