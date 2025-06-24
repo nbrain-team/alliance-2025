@@ -10,6 +10,7 @@ import { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import GeneratorPage from './pages/GeneratorPage';
 import LandingPage from './pages/LandingPage';
+import FeedbackLogPage from './pages/FeedbackLogPage';
 
 // Define the structure for a message
 interface Message {
@@ -66,6 +67,7 @@ function AppRoutes() {
                 <Route path="/knowledge" element={<KnowledgeBase />} />
                 <Route path="/generator" element={<GeneratorPage />} />
                 <Route path="/history" element={<HistoryPage />} />
+                <Route path="/feedback" element={<ProtectedRoute><FeedbackLogPage /></ProtectedRoute>} />
                 {/* Redirect any other nested path to the chat page */}
                 <Route path="*" element={<Navigate to="/" />} />
               </Routes>

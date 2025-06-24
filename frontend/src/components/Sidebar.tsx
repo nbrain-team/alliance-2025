@@ -1,5 +1,23 @@
 import { Flex } from '@radix-ui/themes';
 import { useNavigate } from 'react-router-dom';
+import {
+    HomeIcon,
+    ChatBubbleIcon,
+    ReaderIcon,
+    FileTextIcon,
+    BackpackIcon,
+    BarChartIcon,
+    ExitIcon,
+    RocketIcon
+} from '@radix-ui/react-icons';
+import { useAuth } from '../context/AuthContext';
+
+const navItems = [
+    { name: 'Knowledge Base', href: '/knowledge-base', icon: BackpackIcon },
+    { name: 'AI Report Generator', href: '/generator', icon: FileTextIcon },
+    { name: 'Chat History', href: '/history', icon: ReaderIcon },
+    { name: 'Feedback Log', href: '/feedback', icon: BarChartIcon }
+];
 
 export const Sidebar = ({ onNewChat }: { onNewChat: () => void }) => {
     const navigate = useNavigate();

@@ -39,6 +39,20 @@ class ChatSession(Base):
     user = relationship("User", back_populates="conversations")
 
 
+class Feedback(Base):
+    __tablename__ = 'feedback'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    conversation_id = Column(String, nullable=True, index=True)
+    message_id = Column(String, nullable=False, unique=True, index=True)
+    rating = Column(String, nullable=False) # "good" or "bad"
+    notes = Column(String, nullable=True)
+    message_text = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    user_id = Column(String, ForeignKey('users.id'))
+    user = relationship("User")
+
+
 def get_db():
     """Dependency to get a DB session."""
     db = SessionLocal()

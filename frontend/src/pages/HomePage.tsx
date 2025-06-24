@@ -1,17 +1,19 @@
 import { Box, Flex, Text, ScrollArea, IconButton, Heading } from '@radix-ui/themes';
 import { CommandCenter } from '../components/CommandCenter';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { PersonIcon } from '@radix-ui/react-icons';
+import { ThickArrowUpIcon, ThickArrowDownIcon } from '@radix-ui/react-icons';
 import Select from 'react-select';
 import { properties } from '../constants/properties';
+import { v4 as uuidv4 } from 'uuid';
 
 // Make this interface flexible to avoid conflict with App.tsx
 interface Message {
+  id: string;
   text: string;
   sender: 'user' | 'ai';
   sources?: (string | { source: string })[];
@@ -52,6 +54,18 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
     const [selectedProperties, setSelectedProperties] = useState<{ value: string; label: string; }[]>([]);
     const { logout } = useAuth();
     const navigate = useNavigate();
+    
+    const [feedbackRatings, setFeedbackRatings] = useState<{ [messageId: string]: 'good' | 'bad' | null }>({});
+    const [feedbackNotes, setFeedbackNotes] = useState<{ [messageId: string]: string }>({});
+    const [feedbackSubmitted, setFeedbackSubmitted] = useState<{ [messageId: string]: boolean }>({});
+
+    useEffect(() => {
+        // Find the conversation ID from the very first message if it exists
+        const conversationId = messages.length > 0 ? messages[0].id : null;
+        if (conversationId) {
+            // You could potentially fetch existing feedback for this conversation here if needed
+        }
+    }, [messages]);
 
     const handleLogout = () => {
         logout();
@@ -61,15 +75,15 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
     const handleSendMessage = async (query: string) => {
         if (!query.trim()) return;
 
-        const newUserMessage: Message = { text: query, sender: 'user' };
+        const conversationId = messages.length > 0 ? messages[0].id : uuidv4();
+        const newUserMessage: Message = { id: conversationId, text: query, sender: 'user' };
+        
         setMessages(prev => [...prev, newUserMessage]);
         setIsLoading(true);
 
         try {
             const token = localStorage.getItem('token');
             if (!token) {
-                // This should ideally not happen if the user is on this page,
-                // but it's a good safeguard.
                 throw new Error("Authentication token not found.");
             }
 
@@ -81,7 +95,7 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
                 },
                 body: JSON.stringify({
                     query: query,
-                    history: messages,
+                    history: messages.map(({ id, ...rest }) => rest),
                     properties: selectedProperties.map(p => p.value)
                 }),
             });
@@ -94,6 +108,7 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
             const decoder = new TextDecoder();
             let aiResponse = '';
             let isFirstChunk = true;
+            const aiMessageId = uuidv4();
             
             while (true) {
                 const { done, value } = await reader.read();
@@ -104,7 +119,7 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
 
                 for (const line of eventLines) {
                     if (isFirstChunk) {
-                        setMessages(prev => [...prev, { text: '', sender: 'ai', sources: [] }]);
+                        setMessages(prev => [...prev, { id: aiMessageId, text: '', sender: 'ai', sources: [] }]);
                         isFirstChunk = false;
                     }
 
@@ -134,9 +149,50 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
             }
         } catch (error) {
             console.error('Error fetching stream:', error);
-            setMessages(prev => [...prev, { text: 'Sorry, I ran into an issue.', sender: 'ai' }]);
+            setMessages(prev => [...prev, { id: uuidv4(), text: 'Sorry, I ran into an issue.', sender: 'ai' }]);
         } finally {
             setIsLoading(false);
+        }
+    };
+    
+    const handleFeedback = (messageId: string, rating: 'good' | 'bad') => {
+        setFeedbackRatings(prev => ({ ...prev, [messageId]: rating }));
+        if (rating === 'good') {
+            submitFeedback(messageId, rating, '');
+        }
+    };
+
+    const submitFeedback = async (messageId: string, rating: 'good' | 'bad', notes: string) => {
+        const message = messages.find(m => m.id === messageId);
+        if (!message) return;
+
+        const conversationId = messages[0]?.id || 'standalone_message';
+
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/feedback`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    conversation_id: conversationId,
+                    message_id: message.id,
+                    message_text: message.text,
+                    rating: rating,
+                    notes: notes,
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to submit feedback.');
+            }
+            
+            setFeedbackSubmitted(prev => ({ ...prev, [messageId]: true }));
+        } catch (error) {
+            console.error('Error submitting feedback:', error);
+            setFeedbackRatings(prev => ({ ...prev, [messageId]: null }));
         }
     };
 
@@ -152,12 +208,52 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
             <ScrollArea style={{ flex: 1, padding: '1rem', width: '100%' }}>
                 <Box style={{ maxWidth: '1000px', margin: '0' }}>
                     {messages.map((msg, index) => (
-                        <div key={index} className="message-container">
+                        <div key={msg.id} className="message-container">
                             <div className={`message-bubble ${msg.sender}`}>
                                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                                     {msg.text}
                                 </ReactMarkdown>
                             </div>
+                            {msg.sender === 'ai' && !feedbackSubmitted[msg.id] && (
+                                <div className="feedback-container">
+                                    <IconButton
+                                        size="1"
+                                        variant="ghost"
+                                        className={`feedback-button ${feedbackRatings[msg.id] === 'good' ? 'selected' : ''}`}
+                                        onClick={() => handleFeedback(msg.id, 'good')}
+                                    >
+                                        <ThickArrowUpIcon />
+                                    </IconButton>
+                                    <IconButton
+                                        size="1"
+                                        variant="ghost"
+                                        className={`feedback-button ${feedbackRatings[msg.id] === 'bad' ? 'selected' : ''}`}
+                                        onClick={() => handleFeedback(msg.id, 'bad')}
+                                    >
+                                        <ThickArrowDownIcon />
+                                    </IconButton>
+                                </div>
+                            )}
+                            {feedbackRatings[msg.id] === 'bad' && !feedbackSubmitted[msg.id] && (
+                                <div className="feedback-input-container">
+                                    <input
+                                        type="text"
+                                        className="feedback-input"
+                                        placeholder="Add a note (optional)..."
+                                        value={feedbackNotes[msg.id] || ''}
+                                        onChange={(e) => setFeedbackNotes(prev => ({ ...prev, [msg.id]: e.target.value }))}
+                                    />
+                                    <button
+                                        className="feedback-submit-button"
+                                        onClick={() => submitFeedback(msg.id, 'bad', feedbackNotes[msg.id] || '')}
+                                    >
+                                        Submit
+                                    </button>
+                                </div>
+                            )}
+                            {feedbackSubmitted[msg.id] && (
+                                <div className="feedback-thanks">Thank you for your feedback!</div>
+                            )}
                             {msg.sender === 'ai' && msg.sources && msg.sources.length > 0 && (
                                 <div className="citations">
                                     <span className="citation-title">Sources:</span>
@@ -327,6 +423,51 @@ const STYLES = `
     .message-bubble.ai li p {
         margin-block-start: 0;
         margin-block-end: 0;
+    }
+    .feedback-container {
+        display: flex;
+        gap: 0.5rem;
+        align-self: flex-start;
+        margin-top: 0.5rem;
+        margin-left: 0.5rem;
+    }
+    .feedback-button.selected {
+        background-color: var(--accent-a4);
+        color: var(--accent-a11);
+    }
+    .feedback-input-container {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+        width: 85%;
+        align-self: flex-start;
+    }
+    .feedback-input {
+        flex-grow: 1;
+        border: 1px solid var(--gray-6);
+        border-radius: 4px;
+        padding: 0.4rem 0.6rem;
+        font-size: 0.875rem;
+    }
+    .feedback-submit-button {
+        background-color: var(--accent-9);
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 0.4rem 0.8rem;
+        cursor: pointer;
+        font-size: 0.875rem;
+    }
+    .feedback-submit-button:hover {
+        background-color: var(--accent-10);
+    }
+    .feedback-thanks {
+        align-self: flex-start;
+        margin-top: 0.5rem;
+        margin-left: 0.5rem;
+        font-size: 0.8rem;
+        color: var(--gray-10);
+        font-style: italic;
     }
 `;
 

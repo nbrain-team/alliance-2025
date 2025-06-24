@@ -18,7 +18,7 @@ from datetime import datetime
 from fastapi.concurrency import run_in_threadpool
 
 from core import pinecone_manager, llm_handler, processor, auth, generator_handler
-from core.database import Base, get_db, engine, User, ChatSession, SessionLocal
+from core.database import Base, get_db, engine, User, ChatSession, SessionLocal, Feedback
 
 load_dotenv()
 
@@ -70,6 +70,13 @@ class GeneratorRequest(BaseModel):
     core_content: str
     tone: str
     style: str
+
+class FeedbackCreate(BaseModel):
+    conversation_id: Optional[str] = None
+    message_id: str
+    rating: str
+    notes: Optional[str] = None
+    message_text: str
 
 # --- App Initialization ---
 app = FastAPI(
@@ -324,6 +331,32 @@ async def generator_process(
     except Exception as e:
         logger.error(f"Error in generator processing: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="An internal error occurred during file processing.")
+
+@app.post("/feedback")
+async def create_feedback(feedback_data: FeedbackCreate, db: Session = Depends(get_db), current_user: User = Depends(auth.get_current_active_user)):
+    """Saves user feedback to the database."""
+    # Check if feedback for this message already exists to prevent duplicates
+    existing_feedback = db.query(Feedback).filter(Feedback.message_id == feedback_data.message_id).first()
+    if existing_feedback:
+        raise HTTPException(status_code=409, detail="Feedback for this message has already been submitted.")
+
+    new_feedback = Feedback(
+        conversation_id=feedback_data.conversation_id,
+        message_id=feedback_data.message_id,
+        rating=feedback_data.rating,
+        notes=feedback_data.notes,
+        message_text=feedback_data.message_text,
+        user_id=current_user.id
+    )
+    db.add(new_feedback)
+    db.commit()
+    db.refresh(new_feedback)
+    return new_feedback
+
+@app.get("/feedback")
+async def get_all_feedback(db: Session = Depends(get_db), current_user: User = Depends(auth.get_current_active_user)):
+    """Retrieves all feedback records, newest first."""
+    return db.query(Feedback).order_by(Feedback.created_at.desc()).all()
 
 # This is a standalone function to be called from the stream
 def save_chat_history_sync(
