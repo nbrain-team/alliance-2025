@@ -182,7 +182,7 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
                 borderTop: '1px solid var(--gray-4)', 
                 backgroundColor: 'white'
             }}>
-                <Flex gap="3" align="center" style={{ maxWidth: '1000px', margin: '0 auto' }}>
+                <Flex gap="3" align="center" style={{ maxWidth: '1000px', margin: '0' }}>
                     <Box style={{ width: '350px' }}>
                         <Select
                             isMulti
@@ -191,6 +191,7 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
                             onChange={(selected) => setSelectedProperties(selected as any)}
                             placeholder="Select properties to search..."
                             styles={selectStyles}
+                            menuPlacement="top"
                         />
                     </Box>
                     <Box style={{ flexGrow: 1 }}>

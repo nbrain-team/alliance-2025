@@ -41,6 +41,7 @@ export const CommandCenter = ({ onSend, isLoading }: CommandCenterProps) => {
             <TextField.Root
                 placeholder="Ask a question or type a command..."
                 style={{ flexGrow: 1 }}
+                size="3"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
