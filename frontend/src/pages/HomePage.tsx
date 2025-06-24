@@ -22,6 +22,31 @@ interface HomePageProps {
     setMessages: Dispatch<SetStateAction<Message[]>>;
 }
 
+const selectStyles = {
+    control: (provided: any) => ({
+        ...provided,
+        minHeight: '40px', // Matches Radix TextField size="3"
+        height: '40px',
+        boxShadow: 'none',
+        '&:hover': {
+            borderColor: 'var(--gray-8)',
+        }
+    }),
+    valueContainer: (provided: any) => ({
+        ...provided,
+        height: '40px',
+        padding: '0 8px'
+    }),
+    input: (provided: any) => ({
+        ...provided,
+        margin: '0px',
+    }),
+    indicatorsContainer: (provided: any) => ({
+        ...provided,
+        height: '40px',
+    }),
+};
+
 const HomePage = ({ messages, setMessages }: HomePageProps) => {
     const [isLoading, setIsLoading] = useState(false);
     const [selectedProperties, setSelectedProperties] = useState<{ value: string; label: string; }[]>([]);
@@ -157,16 +182,21 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
                 borderTop: '1px solid var(--gray-4)', 
                 backgroundColor: 'white'
             }}>
-                <Box style={{ marginBottom: '1rem', maxWidth: '1000px', margin: '0 auto' }}>
-                    <Select
-                        isMulti
-                        options={properties.map(p => ({ value: p, label: p }))}
-                        value={selectedProperties}
-                        onChange={(selected) => setSelectedProperties(selected as any)}
-                        placeholder="Select properties to search..."
-                    />
-                </Box>
-                <CommandCenter onSend={handleSendMessage} isLoading={isLoading} />
+                <Flex gap="3" align="center" style={{ maxWidth: '1000px', margin: '0 auto' }}>
+                    <Box style={{ width: '350px' }}>
+                        <Select
+                            isMulti
+                            options={properties.map(p => ({ value: p, label: p }))}
+                            value={selectedProperties}
+                            onChange={(selected) => setSelectedProperties(selected as any)}
+                            placeholder="Select properties to search..."
+                            styles={selectStyles}
+                        />
+                    </Box>
+                    <Box style={{ flexGrow: 1 }}>
+                        <CommandCenter onSend={handleSendMessage} isLoading={isLoading} />
+                    </Box>
+                </Flex>
             </Box>
             <style>{STYLES}</style>
         </Flex>
