@@ -7,6 +7,8 @@ import remarkGfm from 'remark-gfm';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { PersonIcon } from '@radix-ui/react-icons';
+import Select from 'react-select';
+import { properties } from '../constants/properties';
 
 // Make this interface flexible to avoid conflict with App.tsx
 interface Message {
@@ -22,6 +24,7 @@ interface HomePageProps {
 
 const HomePage = ({ messages, setMessages }: HomePageProps) => {
     const [isLoading, setIsLoading] = useState(false);
+    const [selectedProperties, setSelectedProperties] = useState<{ value: string; label: string; }[]>([]);
     const { logout } = useAuth();
     const navigate = useNavigate();
 
@@ -53,7 +56,8 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
                 },
                 body: JSON.stringify({
                     query: query,
-                    history: messages
+                    history: messages,
+                    properties: selectedProperties.map(p => p.value)
                 }),
             });
 
@@ -153,6 +157,15 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
                 borderTop: '1px solid var(--gray-4)', 
                 backgroundColor: 'white'
             }}>
+                <Box style={{ marginBottom: '1rem', maxWidth: '1000px', margin: '0 auto' }}>
+                    <Select
+                        isMulti
+                        options={properties.map(p => ({ value: p, label: p }))}
+                        value={selectedProperties}
+                        onChange={(selected) => setSelectedProperties(selected as any)}
+                        placeholder="Select properties to search..."
+                    />
+                </Box>
                 <CommandCenter onSend={handleSendMessage} isLoading={isLoading} />
             </Box>
             <style>{STYLES}</style>

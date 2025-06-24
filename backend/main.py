@@ -52,6 +52,7 @@ class ConversationDetail(ConversationSummary):
 class ChatRequest(BaseModel):
     query: str
     history: List[dict] = []
+    properties: Optional[List[str]] = None
 
 class UserCreate(BaseModel):
     email: EmailStr
@@ -174,15 +175,15 @@ def read_root():
     return {"status": "Alliance RAG API is running"}
 
 # --- Background Processing ---
-def process_and_index_files(temp_file_paths: List[str], original_file_names: List[str]):
-    logger.info(f"BACKGROUND_TASK: Starting processing for {len(original_file_names)} files.")
+def process_and_index_files(temp_file_paths: List[str], original_file_names: List[str], property: str):
+    logger.info(f"BACKGROUND_TASK: Starting processing for {len(original_file_names)} files for property '{property}'.")
     for i, temp_path in enumerate(temp_file_paths):
         original_name = original_file_names[i]
         logger.info(f"BACKGROUND_TASK: Processing {original_name}")
         try:
             chunks = processor.process_file(temp_path, original_name)
             if chunks:
-                metadata = {"source": original_name, "doc_type": "file_upload"}
+                metadata = {"source": original_name, "doc_type": "file_upload", "property": property}
                 pinecone_manager.upsert_chunks(chunks, metadata)
                 logger.info(f"BACKGROUND_TASK: Successfully processed and indexed {original_name}")
             else:
@@ -237,7 +238,11 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     return {"access_token": access_token, "token_type": "bearer"}
 
 @app.post("/upload-files")
-async def upload_files(files: List[UploadFile] = File(...), background_tasks: BackgroundTasks = BackgroundTasks()):
+async def upload_files(
+    files: List[UploadFile] = File(...),
+    property: str = Form(...),
+    background_tasks: BackgroundTasks = BackgroundTasks()
+):
     temp_file_paths = []
     original_file_names = []
     for file in files:
@@ -246,7 +251,7 @@ async def upload_files(files: List[UploadFile] = File(...), background_tasks: Ba
             temp_file.write(content)
             temp_file_paths.append(temp_file.name)
             original_file_names.append(file.filename)
-    background_tasks.add_task(process_and_index_files, temp_file_paths, original_file_names)
+    background_tasks.add_task(process_and_index_files, temp_file_paths, original_file_names, property)
     return {"message": f"Successfully uploaded {len(files)} files. Processing has started in the background."}
 
 @app.post("/crawl-urls")
@@ -362,54 +367,48 @@ async def get_all_chat_histories(db: Session = Depends(get_db), current_user: Us
 
 @app.get("/history/{conversation_id}", response_model=ConversationDetail)
 async def get_chat_history(conversation_id: str, db: Session = Depends(get_db), current_user: User = Depends(auth.get_current_active_user)):
-    conversation = db.query(ChatSession).filter(
-        ChatSession.id == conversation_id,
-        ChatSession.user_id == current_user.id
-    ).first()
-
-    if not conversation:
-        raise HTTPException(status_code=404, detail="Conversation not found or access denied")
-    return conversation
+    return auth.get_conversation_by_id(db, conversation_id, current_user.id)
 
 @app.post("/chat/stream")
 async def chat_stream(req: ChatRequest, current_user: User = Depends(auth.get_current_active_user)):
+    """
+    Handles a chat request, generates a response, and streams it back to the client.
+    It uses the LLM handler to get a response and then formats it as a server-sent event stream.
+    """
     async def stream_generator() -> AsyncGenerator[str, None]:
-        full_response = ""
-        source_documents = []
-        chat_id = str(uuid.uuid4()) # Generate a single ID for the entire conversation
-
+        # This is the main async generator for the streaming response
         try:
-            # First, query the index to get relevant documents
-            matches = pinecone_manager.query_index(req.query, top_k=5)
-            source_documents = [{"source": m.get('metadata', {}).get('source')} for m in matches]
-
-            # Now, stream the answer from the LLM with context
-            generator = llm_handler.stream_answer(req.query, matches, req.history)
+            # First, get the context from Pinecone based on the query
+            matches = await run_in_threadpool(
+                pinecone_manager.query_index,
+                query=req.query,
+                top_k=5,
+                properties=req.properties
+            )
+            context = " ".join([m['metadata']['text'] for m in matches])
+            sources = list(set([m['metadata']['source'] for m in matches]))
             
-            async for chunk in generator:
-                # The generator from llm_handler now only yields content strings
-                full_response += chunk
-                yield f"data: {json.dumps({'content': chunk, 'chatId': chat_id, 'sources': source_documents})}\n\n"
+            # Use a separate async generator from the LLM handler
+            llm_stream = llm_handler.get_rag_response(req.query, req.history, context)
+            
+            # Stream the LLM response
+            full_response_text = ""
+            async for chunk in llm_stream:
+                full_response_text += chunk
+                response_data = {"content": chunk}
+                yield f"data: {json.dumps(response_data)}\n\n"
 
-            if full_response:
-                history_messages = req.history + [
-                    {"text": req.query, "sender": "user"},
-                    {"text": full_response, "sender": "ai", "sources": [s['source'] for s in source_documents if s['source']]}
-                ]
-                
-                pydantic_messages = [ChatMessage(**msg) for msg in history_messages]
-                # Use the same chat_id generated at the start of the stream
-                history_to_save = ChatHistory(chat_id=uuid.UUID(chat_id), messages=pydantic_messages)
-
-                with SessionLocal() as db:
-                    await run_in_threadpool(save_chat_history_sync, history_to_save, db, current_user)
-
-        except Exception as e:
-            logger.error(f"Error during chat stream: {e}", exc_info=True)
-            error_message = json.dumps({"error": "An unexpected error occurred."})
-            yield f"data: {error_message}\n\n"
-        finally:
+            # Once the text stream is complete, send the sources
+            source_data = {"sources": sources}
+            yield f"data: {json.dumps(source_data)}\n\n"
+            
+            # Finally, signal the end of the stream
             yield "data: [DONE]\n\n"
-            logger.info("Chat stream finished.")
+            
+        except Exception as e:
+            logger.error(f"Error in chat stream: {e}", exc_info=True)
+            # Send an error message to the client
+            error_response = {"error": "An unexpected error occurred."}
+            yield f"data: {json.dumps(error_response)}\n\n"
 
     return StreamingResponse(stream_generator(), media_type="text/event-stream")

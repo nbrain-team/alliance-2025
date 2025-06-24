@@ -5,6 +5,8 @@ import { Checkbox, IconButton, Button, Flex, Heading, Text, Box } from '@radix-u
 import { TrashIcon, ChevronLeftIcon, ChevronRightIcon, PersonIcon } from '@radix-ui/react-icons';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import Select from 'react-select';
+import { properties } from '../constants/properties';
 
 type UploadType = 'files' | 'urls';
 
@@ -26,6 +28,7 @@ const KnowledgeBase = () => {
     const [uploadStatus, setUploadStatus] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
+    const [selectedProperty, setSelectedProperty] = useState<{ value: string; label: string; } | null>(null);
     const docsPerPage = 10;
     const [isUploading, setIsUploading] = useState(false);
     const { logout } = useAuth();
@@ -175,10 +178,16 @@ const KnowledgeBase = () => {
                 setIsUploading(false);
                 return;
             }
+            if (!selectedProperty) {
+                setUploadStatus('Please select a property.');
+                setIsUploading(false);
+                return;
+            }
             const formData = new FormData();
             Array.from(files).forEach(file => {
                 formData.append('files', file);
             });
+            formData.append('property', selectedProperty.value);
             uploadFilesMutation.mutate(formData);
         } else {
             const urlList = urls.split('\n').map(u => u.trim()).filter(u => u);
@@ -240,24 +249,32 @@ const KnowledgeBase = () => {
                             </div>
 
                             {uploadType === 'files' ? (
-                                <div className="form-group">
-                                    <label>Select Files</label>
-                                    <div className="custom-file-input-container">
-                                        <input 
-                                            type="file" 
-                                            id="file-input" 
-                                            multiple
-                                            onChange={handleFileChange} 
-                                            style={{ display: 'none' }} 
+                                <>
+                                    <div className="form-group">
+                                        <label>Select Property</label>
+                                        <Select
+                                            options={properties.map(p => ({ value: p, label: p }))}
+                                            value={selectedProperty}
+                                            onChange={(selected) => setSelectedProperty(selected as any)}
+                                            placeholder="Select a property..."
                                         />
-                                        <label htmlFor="file-input" className="file-input-label">
-                                            Choose Files
-                                        </label>
-                                        <span className="file-name-display">
-                                            {files ? `${files.length} file(s) chosen` : 'No files chosen'}
-                                        </span>
                                     </div>
-                                </div>
+                                    <div className="form-group">
+                                        <label>Select Files</label>
+                                        <div className="custom-file-input-container">
+                                            <input
+                                                type="file"
+                                                id="file-input"
+                                                multiple
+                                                onChange={handleFileChange}
+                                                className="custom-file-input"
+                                            />
+                                            <label htmlFor="file-input" className="custom-file-label">
+                                                {files ? `${files.length} file(s) chosen` : 'Choose Files'}
+                                            </label>
+                                        </div>
+                                    </div>
+                                </>
                             ) : (
                                 <div className="form-group">
                                     <label htmlFor="url-input">Enter URLs (one per line)</label>
@@ -460,7 +477,18 @@ const STYLES = `
         box-sizing: border-box;
         background-color: #fff;
     }
-    .file-input-label {
+    .file-name-display {
+        padding: 0.6rem 0.8rem;
+        flex-grow: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: #555;
+    }
+    .custom-file-input {
+        display: none;
+    }
+    .custom-file-label {
         padding: 0.6rem 1rem;
         background-color: #f0f0f0;
         cursor: pointer;
@@ -470,16 +498,8 @@ const STYLES = `
         border-bottom-left-radius: 7px;
         transition: background-color 0.2s;
     }
-    .file-input-label:hover {
+    .custom-file-label:hover {
         background-color: #e0e0e0;
-    }
-    .file-name-display {
-        padding: 0.6rem 0.8rem;
-        flex-grow: 1;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        color: #555;
     }
     .form-group input[type="text"], .form-group input[type="file"], .form-group select {
         width: 100%;

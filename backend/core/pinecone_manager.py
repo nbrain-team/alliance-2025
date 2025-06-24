@@ -89,7 +89,7 @@ def delete_document(file_name: str):
     index = _get_pinecone_index()
     index.delete(filter={"source": file_name})
 
-def query_index(query: str, top_k: int = 10, file_names: List[str] = None):
+def query_index(query: str, top_k: int = 10, file_names: List[str] = None, properties: List[str] = None):
     """
     Queries the index with a question and returns the most relevant text chunks
     and their source documents.
@@ -100,15 +100,17 @@ def query_index(query: str, top_k: int = 10, file_names: List[str] = None):
     
     query_embedding = embeddings.embed_query(query)
     
-    filter_metadata = None
+    filter_metadata = {}
     if file_names:
-        filter_metadata = {"source": {"$in": file_names}}
+        filter_metadata["source"] = {"$in": file_names}
+    if properties:
+        filter_metadata["property"] = {"$in": properties}
 
     results = index.query(
         vector=query_embedding,
         top_k=top_k,
         include_metadata=True,
-        filter=filter_metadata
+        filter=filter_metadata if filter_metadata else None
     )
     
     return results.get('matches', []) 
