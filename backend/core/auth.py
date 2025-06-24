@@ -7,10 +7,14 @@ from dotenv import load_dotenv
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
+import logging
 
 from . import database # Use relative import
 
 load_dotenv()
+
+# Set up a logger
+logger = logging.getLogger(__name__)
 
 # --- Configuration ---
 # You should generate a truly secret key using: openssl rand -hex 32
@@ -30,14 +34,20 @@ async def get_token(request: Request):
     or a query parameter named 'token'. This provides a fallback for clients
     or situations (like event streams) where headers might be tricky.
     """
+    # Log all headers for debugging purposes
+    logger.info(f"Auth layer received headers: {request.headers}")
+    
     auth_header = request.headers.get("Authorization")
     if auth_header and auth_header.startswith("Bearer "):
+        logger.info("Found token in 'Authorization' header.")
         return auth_header.split(" ")[1]
 
     token_param = request.query_params.get("token")
     if token_param:
+        logger.info("Found token in 'token' query parameter.")
         return token_param
     
+    logger.warning("No token found in header or query parameters.")
     # If we get here, no token was found in either location.
     # We will let get_current_active_user handle the final exception
     # for cases where no token is needed, but this return prevents a crash.

@@ -73,7 +73,7 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
                 throw new Error("Authentication token not found.");
             }
 
-            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/chat/stream?token=${token}`, {
+            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/chat/stream`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
