@@ -69,9 +69,11 @@ def create_access_token(data: dict):
 
 def decode_access_token(token: str):
     try:
+        logger.info(f"Attempting to decode token with SECRET_KEY: '{SECRET_KEY}'")
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
-    except JWTError:
+    except JWTError as e:
+        logger.error(f"JWTError while decoding token: {e}")
         return None
 
 # --- User Authentication & Dependencies ---
