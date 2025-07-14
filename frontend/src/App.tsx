@@ -11,9 +11,11 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import GeneratorPage from './pages/GeneratorPage';
 import LandingPage from './pages/LandingPage';
 import FeedbackLogPage from './pages/FeedbackLogPage';
+import Agents from './pages/Agents';
 
 // Define the structure for a message
 interface Message {
+  id: string;
   text: string;
   sender: 'user' | 'ai';
   sources?: (string | { source: string })[];
@@ -68,6 +70,7 @@ function AppRoutes() {
                 <Route path="/generator" element={<GeneratorPage />} />
                 <Route path="/history" element={<HistoryPage />} />
                 <Route path="/feedback" element={<ProtectedRoute><FeedbackLogPage /></ProtectedRoute>} />
+                <Route path="/agent-ideas" element={<ProtectedRoute><Agents /></ProtectedRoute>} />
                 {/* Redirect any other nested path to the chat page */}
                 <Route path="*" element={<Navigate to="/" />} />
               </Routes>

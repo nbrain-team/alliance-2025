@@ -18,7 +18,9 @@ from datetime import datetime
 from fastapi.concurrency import run_in_threadpool
 
 from core import pinecone_manager, llm_handler, processor, auth, generator_handler
-from core.database import Base, get_db, engine, User, ChatSession, SessionLocal, Feedback
+from core.database import Base, get_db, engine, User, ChatSession, SessionLocal, Feedback, AgentIdea
+from core.agent_ideator_endpoints import setup_agent_ideator_endpoints
+from core.ideator_handler import process_ideation_message, process_edit_message
 
 load_dotenv()
 
@@ -175,6 +177,16 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+# Setup agent ideator endpoints
+setup_agent_ideator_endpoints(
+    app=app,
+    get_db=get_db,
+    get_current_active_user=auth.get_current_active_user,
+    AgentIdea=AgentIdea,
+    process_ideation_message=process_ideation_message,
+    process_edit_message=process_edit_message
 )
 
 @app.get("/")

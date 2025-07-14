@@ -25,6 +25,7 @@ class User(Base):
     is_active = Column(Boolean, default=True)
 
     conversations = relationship("ChatSession", back_populates="user")
+    agent_ideas = relationship("AgentIdea", back_populates="user")
 
 
 class ChatSession(Base):
@@ -51,6 +52,29 @@ class Feedback(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     user_id = Column(String, ForeignKey('users.id'))
     user = relationship("User")
+
+
+class AgentIdea(Base):
+    __tablename__ = 'agent_ideas'
+    
+    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    title = Column(String, nullable=False)
+    summary = Column(String, nullable=False)
+    steps = Column(JSON, nullable=False)  # List of step descriptions
+    agent_stack = Column(JSON, nullable=False)  # Technical stack details
+    client_requirements = Column(JSON, nullable=False)  # List of requirements
+    conversation_history = Column(JSON, nullable=True)  # Store the ideation conversation
+    status = Column(String, default="draft")  # draft, completed, in_development
+    agent_type = Column(String, nullable=True)  # customer_service, data_analysis, etc.
+    implementation_estimate = Column(JSON, nullable=True)  # Cost and time estimates
+    security_considerations = Column(JSON, nullable=True)  # Security details
+    future_enhancements = Column(JSON, nullable=True)  # List of future enhancement ideas
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Foreign key to users table
+    user_id = Column(String, ForeignKey('users.id'))
+    user = relationship("User", back_populates="agent_ideas")
 
 
 def get_db():
