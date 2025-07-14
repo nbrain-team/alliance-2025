@@ -1,7 +1,7 @@
 import os
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.schema import HumanMessage, AIMessage, SystemMessage
-from typing import AsyncGenerator, List, Dict, Optional
+from typing import AsyncGenerator, List, Dict, Optional, Tuple
 import logging
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
@@ -12,6 +12,51 @@ from . import pinecone_manager
 # Configure comprehensive logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+# Query classification prompt
+QUERY_CLASSIFIER_PROMPT = """
+You are a query classification agent. Analyze the user's question and classify it as either:
+1. "simple" - A straightforward factual question looking for a specific piece of information (dates, names, amounts, etc.)
+2. "complex" - A question requiring analysis, comparison, or synthesis of multiple pieces of information
+
+Examples of simple queries:
+- "When does the lease expire?"
+- "What is the monthly rent?"
+- "Who is the property manager?"
+- "What are the CAM charges?"
+
+Examples of complex queries:
+- "Analyze the financial performance of the property"
+- "Compare the lease terms across multiple properties"
+- "What are the risks associated with this investment?"
+- "Provide a comprehensive overview of the property"
+
+User's Question: {query}
+
+Respond with ONLY one word: "simple" or "complex"
+"""
+
+# Simple query prompt - for direct, concise answers
+SIMPLE_QUERY_PROMPT = """
+You are a property information assistant. Your task is to find and provide a DIRECT, CONCISE answer to the user's specific question.
+
+**User's Question:** {query}
+
+**Retrieved Information:**
+{context}
+
+**Instructions:**
+1. Find the EXACT answer to the question in the provided information
+2. Respond with ONLY the specific fact requested - no explanations, no analysis, no additional context
+3. If the answer has multiple parts (like multiple dates or fees), list them clearly
+4. If the information is not found, say only: "Information not found in the documents"
+5. Include the source document name in parentheses at the end
+
+Examples of good responses:
+- "The lease expires on 8/31/2037 (Commercial Lease Extract.pdf)"
+- "Monthly rent: $5,000 (Lease Agreement.pdf)"
+- "CAM charges: $1,200/month (Property Summary.xlsx)"
+"""
 
 # This is a condensed version of ADTV's mission, values, and FAQs.
 # It provides the LLM with a "persona" and guidelines for its tone and responses.
@@ -73,6 +118,93 @@ def get_llm():
         streaming=True
     )
 
+async def classify_query(query: str) -> str:
+    """
+    Classifies a query as 'simple' or 'complex'
+    """
+    llm = ChatGoogleGenerativeAI(
+        model="gemini-1.5-pro",
+        google_api_key=os.environ["GEMINI_API_KEY"],
+        max_output_tokens=10,
+        temperature=0.0
+    )
+    
+    prompt = ChatPromptTemplate.from_template(QUERY_CLASSIFIER_PROMPT)
+    chain = prompt | llm | StrOutputParser()
+    
+    try:
+        classification = await chain.ainvoke({"query": query})
+        classification = classification.strip().lower()
+        if classification in ["simple", "complex"]:
+            logger.info(f"Query classified as: {classification}")
+            return classification
+        else:
+            logger.warning(f"Invalid classification: {classification}. Defaulting to complex.")
+            return "complex"
+    except Exception as e:
+        logger.error(f"Error classifying query: {e}")
+        return "complex"
+
+async def handle_simple_query(
+    query: str, properties: Optional[List[str]]
+) -> AsyncGenerator[Dict, None]:
+    """
+    Handles simple factual queries with direct, concise answers
+    """
+    logger.info("Handling simple query")
+    llm = get_llm()
+    
+    # For simple queries, search more broadly to find the specific document
+    # Look for documents that might contain the answer based on common naming patterns
+    search_queries = [
+        query,  # Original query
+        "lease terms lease agreement commercial lease extract",  # Common lease documents
+        "property summary financial summary rent roll",  # Financial documents
+        "property information details specifications"  # General property info
+    ]
+    
+    all_matches = []
+    all_sources = set()
+    
+    for search_q in search_queries:
+        matches = await run_in_threadpool(
+            pinecone_manager.query_index,
+            query=search_q,
+            top_k=10,  # Get more results for simple queries
+            properties=properties
+        )
+        if matches:
+            all_matches.extend(matches)
+            sources = {m.get('metadata', {}).get('source', 'Unknown') for m in matches}
+            all_sources.update(sources)
+    
+    # Remove duplicates while preserving order
+    seen = set()
+    unique_matches = []
+    for match in all_matches:
+        match_id = match.get('id')
+        if match_id not in seen:
+            seen.add(match_id)
+            unique_matches.append(match)
+    
+    # Format context
+    context_texts = []
+    for match in unique_matches[:15]:  # Limit to top 15 chunks
+        source = match.get('metadata', {}).get('source', 'Unknown')
+        text = match.get('metadata', {}).get('text', '')
+        context_texts.append(f"[Source: {source}]\n{text}")
+    
+    context = "\n\n---\n\n".join(context_texts)
+    
+    # Generate response
+    prompt = ChatPromptTemplate.from_template(SIMPLE_QUERY_PROMPT)
+    chain = prompt | llm | StrOutputParser()
+    
+    async for chunk in chain.astream({"query": query, "context": context}):
+        yield {"content": chunk}
+    
+    yield {"sources": list(all_sources)}
+
 async def decompose_query_to_sub_questions(query: str, llm: ChatGoogleGenerativeAI) -> List[str]:
     """
     Uses the LLM to break down a complex user query into a list of simpler sub-questions.
@@ -119,55 +251,65 @@ async def run_agentic_rag_pipeline(
     Orchestrates the multi-step agentic RAG process.
     """
     logger.info("--- Starting Agentic RAG Pipeline ---")
-    llm = get_llm()
     
-    # 1. Decompose the query
-    sub_questions = await decompose_query_to_sub_questions(query, llm)
+    # First, classify the query
+    query_type = await classify_query(query)
     
-    # 2. Gather evidence for each sub-question
-    evidence_list = []
-    all_sources = set()
-    
-    for i, sub_q in enumerate(sub_questions):
-        logger.info(f"Step {i+1}/{len(sub_questions)}: Retrieving context for sub-question: '{sub_q}'")
-        matches = await run_in_threadpool(
-            pinecone_manager.query_index,
-            query=sub_q,
-            top_k=5, # Retrieve 5 chunks per sub-question
-            properties=properties
-        )
+    if query_type == "simple":
+        # Handle simple queries with direct answers
+        async for chunk in handle_simple_query(query, properties):
+            yield chunk
+    else:
+        # Handle complex queries with the full pipeline
+        llm = get_llm()
         
-        context_for_q = ""
-        if matches:
-            sources = {m.get('metadata', {}).get('source', 'Unknown') for m in matches}
-            all_sources.update(sources)
-            # Format context with sources for the final prompt
-            texts_with_sources = [
-                f"{m.get('metadata', {}).get('text', '')} [Source: {m.get('metadata', {}).get('source', 'Unknown')}]"
-                for m in matches
-            ]
-            context_for_q = "\n".join(texts_with_sources)
+        # 1. Decompose the query
+        sub_questions = await decompose_query_to_sub_questions(query, llm)
         
-        evidence_list.append(f"Sub-Question: {sub_q}\nEvidence:\n{context_for_q if context_for_q else 'No relevant information found in documents.'}")
+        # 2. Gather evidence for each sub-question
+        evidence_list = []
+        all_sources = set()
+        
+        for i, sub_q in enumerate(sub_questions):
+            logger.info(f"Step {i+1}/{len(sub_questions)}: Retrieving context for sub-question: '{sub_q}'")
+            matches = await run_in_threadpool(
+                pinecone_manager.query_index,
+                query=sub_q,
+                top_k=5, # Retrieve 5 chunks per sub-question
+                properties=properties
+            )
+            
+            context_for_q = ""
+            if matches:
+                sources = {m.get('metadata', {}).get('source', 'Unknown') for m in matches}
+                all_sources.update(sources)
+                # Format context with sources for the final prompt
+                texts_with_sources = [
+                    f"{m.get('metadata', {}).get('text', '')} [Source: {m.get('metadata', {}).get('source', 'Unknown')}]"
+                    for m in matches
+                ]
+                context_for_q = "\n".join(texts_with_sources)
+            
+            evidence_list.append(f"Sub-Question: {sub_q}\nEvidence:\n{context_for_q if context_for_q else 'No relevant information found in documents.'}")
 
-    # 3. Synthesize the final answer
-    logger.info("Synthesizing final answer from all gathered evidence.")
-    
-    synthesis_prompt = ChatPromptTemplate.from_template(SYNTHESIS_PROMPT_TEMPLATE)
-    
-    synthesis_chain = synthesis_prompt | llm | StrOutputParser()
-    
-    final_prompt_input = {
-        "original_query": query,
-        "evidence": "\n\n---\n\n".join(evidence_list)
-    }
-
-    # 4. Stream the final response
-    async for chunk in synthesis_chain.astream(final_prompt_input):
-        yield {"content": chunk}
+        # 3. Synthesize the final answer
+        logger.info("Synthesizing final answer from all gathered evidence.")
         
-    # 5. Yield the consolidated sources at the end
-    yield {"sources": list(all_sources)}
+        synthesis_prompt = ChatPromptTemplate.from_template(SYNTHESIS_PROMPT_TEMPLATE)
+        
+        synthesis_chain = synthesis_prompt | llm | StrOutputParser()
+        
+        final_prompt_input = {
+            "original_query": query,
+            "evidence": "\n\n---\n\n".join(evidence_list)
+        }
+
+        # 4. Stream the final response
+        async for chunk in synthesis_chain.astream(final_prompt_input):
+            yield {"content": chunk}
+            
+        # 5. Yield the consolidated sources at the end
+        yield {"sources": list(all_sources)}
     
     logger.info("--- Agentic RAG Pipeline Finished ---")
 

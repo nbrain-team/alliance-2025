@@ -3,6 +3,7 @@ from pinecone import Pinecone
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_pinecone import Pinecone as LangchainPinecone
 from typing import List
+import logging
 
 # --- Environment Setup ---
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
@@ -11,6 +12,8 @@ PINECONE_ENV = os.getenv("PINECONE_ENVIRONMENT")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 EMBEDDING_MODEL_NAME = "models/embedding-001"
 EMBEDDING_DIMENSION = 768
+
+logger = logging.getLogger(__name__)
 
 def _get_pinecone_index():
     """Initializes and returns a Pinecone index client."""
@@ -122,4 +125,34 @@ def query_index(query: str, top_k: int = 10, file_names: List[str] = None, prope
         filter=filter_metadata if filter_metadata else None
     )
     
-    return results.get('matches', []) 
+    return results.get('matches', [])
+
+def get_all_property_documents(properties: List[str]) -> List[str]:
+    """
+    Gets all document names associated with the given properties.
+    Useful for comprehensive searches within a property's documents.
+    """
+    try:
+        index = _get_pinecone_index()
+        
+        filter_metadata = {"property": {"$in": properties}} if properties else None
+        
+        # Query with a dummy vector to get all documents for the property
+        results = index.query(
+            vector=[0] * EMBEDDING_DIMENSION,
+            top_k=1000,  # Get many results
+            include_metadata=True,
+            filter=filter_metadata
+        )
+        
+        # Extract unique document names
+        doc_names = set()
+        for match in results.get('matches', []):
+            source = match.get('metadata', {}).get('source')
+            if source:
+                doc_names.add(source)
+        
+        return list(doc_names)
+    except Exception as e:
+        logger.error(f"Error getting property documents: {e}")
+        return [] 
