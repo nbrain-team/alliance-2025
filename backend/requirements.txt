@@ -19,3 +19,6 @@ passlib[bcrypt]
 python-jose[cryptography]
 email-validator
 pandas 
+openpyxl
+tabulate
+xlrd 
