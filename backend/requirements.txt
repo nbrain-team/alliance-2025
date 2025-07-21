@@ -5,6 +5,7 @@ pinecone
 langchain
 google-generativeai
 langchain-google-genai
+langchain-pinecone
 sqlalchemy
 psycopg2-binary
 passlib[bcrypt]
