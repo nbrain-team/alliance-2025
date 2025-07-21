@@ -23,4 +23,5 @@ openpyxl
 tabulate
 xlrd
 Jinja2
-pandas 
+pandas
+email-validator 
