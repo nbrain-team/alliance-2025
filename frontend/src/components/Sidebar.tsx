@@ -65,6 +65,9 @@ export const Sidebar = ({ onNewChat }: { onNewChat: () => void }) => {
                 <button className="sidebar-icon" title="AI Agent Ideator" onClick={() => navigate('/agent-ideas')}>
                     <img src="/new-icons/3.png" alt="Agent Ideator" />
                 </button>
+                <button className="sidebar-icon" title="Score My Deal" onClick={() => navigate('/score-my-deal')}>
+                    <img src="/new-icons/5.png" alt="Score My Deal" />
+                </button>
             </Flex>
         </Flex>
     );

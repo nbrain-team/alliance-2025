@@ -77,6 +77,22 @@ class AgentIdea(Base):
     user = relationship("User", back_populates="agent_ideas")
 
 
+class DealSubmission(Base):
+    __tablename__ = 'deal_submissions'
+
+    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    property_address = Column(String, nullable=False)
+    property_type = Column(String, nullable=False)
+    contact_name = Column(String, nullable=False)
+    contact_email = Column(String, index=True, nullable=False)
+    contact_phone = Column(String, nullable=True)
+    contact_office_address = Column(String, nullable=True)
+    score = Column(String, nullable=False) # Red, Yellow, Green
+    status = Column(String, default="submitted") # submitted, reviewed, etc.
+    generated_response = Column(String, nullable=False) # The HTML of the generated letter
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 def get_db():
     """Dependency to get a DB session."""
     db = SessionLocal()

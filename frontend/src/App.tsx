@@ -12,6 +12,7 @@ import GeneratorPage from './pages/GeneratorPage';
 import LandingPage from './pages/LandingPage';
 import FeedbackLogPage from './pages/FeedbackLogPage';
 import Agents from './pages/Agents';
+import DealScorerPage from './pages/DealScorerPage';
 
 // Define the structure for a message
 interface Message {
@@ -60,6 +61,8 @@ function AppRoutes() {
             </ProtectedRoute>
         } />
         
+        <Route path="/score-my-deal" element={<DealScorerPage />} />
+
         {/* All other authenticated routes get the sidebar via MainLayout */}
         <Route path="/*" element={
           isAuthenticated ? (

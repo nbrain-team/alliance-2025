@@ -18,9 +18,10 @@ from datetime import datetime
 from fastapi.concurrency import run_in_threadpool
 
 from core import pinecone_manager, llm_handler, processor, auth, generator_handler
-from core.database import Base, get_db, engine, User, ChatSession, SessionLocal, Feedback, AgentIdea
+from core.database import Base, get_db, engine, User, ChatSession, SessionLocal, Feedback, AgentIdea, DealSubmission
 from core.agent_ideator_endpoints import setup_agent_ideator_endpoints
 from core.ideator_handler import process_ideation_message, process_edit_message
+from core import deal_scorer
 
 load_dotenv()
 
@@ -79,6 +80,18 @@ class FeedbackCreate(BaseModel):
     rating: str
     notes: Optional[str] = None
     message_text: str
+
+class DealSubmissionRequest(BaseModel):
+    property_address: str
+    property_type: str
+    contact_name: str
+    contact_email: EmailStr
+    contact_phone: Optional[str] = None
+    contact_office_address: Optional[str] = None
+
+class DealSubmissionResponse(BaseModel):
+    score: str
+    html_response: str
 
 # --- App Initialization ---
 app = FastAPI(
@@ -188,6 +201,46 @@ setup_agent_ideator_endpoints(
     process_ideation_message=process_ideation_message,
     process_edit_message=process_edit_message
 )
+
+@app.post("/score-deal", response_model=DealSubmissionResponse)
+async def score_deal(req: DealSubmissionRequest, db: Session = Depends(get_db)):
+    """
+    Public endpoint to score a new real estate deal.
+    This does not require authentication.
+    """
+    try:
+        deal_data = req.dict()
+
+        # 1. Score the deal using the logic from deal_scorer
+        score_result = deal_scorer.score_deal_logic(deal_data)
+
+        # 2. Generate the HTML response letter
+        html_response = deal_scorer.generate_response_letter(score_result, deal_data)
+
+        # 3. Save the submission and response to the database
+        new_submission = DealSubmission(
+            property_address=req.property_address,
+            property_type=req.property_type,
+            contact_name=req.contact_name,
+            contact_email=req.contact_email,
+            contact_phone=req.contact_phone,
+            contact_office_address=req.contact_office_address,
+            score=score_result["score"],
+            generated_response=html_response,
+        )
+        db.add(new_submission)
+        db.commit()
+
+        # 4. Return the score and the HTML response to the frontend
+        return DealSubmissionResponse(
+            score=score_result["score"],
+            html_response=html_response
+        )
+    except Exception as e:
+        logger.error(f"Error scoring deal: {e}", exc_info=True)
+        db.rollback()
+        raise HTTPException(status_code=500, detail="An internal error occurred while scoring the deal.")
+
 
 @app.get("/")
 def read_root():
