@@ -1,7 +1,7 @@
 fastapi
 uvicorn
 python-dotenv
-pinecone-client
+pinecone
 langchain
 google-generativeai
 langchain-google-genai
