@@ -88,6 +88,7 @@ class DealSubmissionRequest(BaseModel):
     contact_email: EmailStr
     contact_phone: Optional[str] = None
     contact_office_address: Optional[str] = None
+    additional_data: Optional[str] = None  # JSON string with all collected data
 
 class DealSubmissionResponse(BaseModel):
     score: str
@@ -475,7 +476,7 @@ async def chat_stream(req: ChatRequest, current_user: User = Depends(auth.get_cu
     async def stream_generator() -> AsyncGenerator[str, None]:
         try:
             # The entire agentic process is now handled by the llm_handler
-            llm_stream = llm_handler.run_agentic_rag_pipeline(
+            llm_stream = llm_handler.run_rag_pipeline(
                 query=req.query,
                 properties=req.properties,
                 history=req.history,

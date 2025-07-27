@@ -1,0 +1,64 @@
+/* Deal Scorer Chatbot Styles */
+
+.chat-container {
+  min-height: 600px;
+  max-height: 80vh;
+}
+
+.chat-messages {
+  scrollbar-width: thin;
+  scrollbar-color: var(--gray-6) transparent;
+}
+
+.chat-messages::-webkit-scrollbar {
+  width: 8px;
+}
+
+.chat-messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+  background-color: var(--gray-6);
+  border-radius: 4px;
+}
+
+.message {
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Radio option hover effect */
+label:has(.rt-RadioGroupItem):hover > div {
+  background-color: var(--gray-2);
+  transition: background-color 0.2s ease;
+}
+
+/* Success/Warning/Error message styling */
+.message.bot .rt-Card[style*="border-left"] {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Bot typing indicator animation */
+@keyframes typing {
+  0%, 60%, 100% {
+    opacity: 0.7;
+  }
+  30% {
+    opacity: 1;
+  }
+}
+
+.message.bot:has(span:contains("typing")) {
+  animation: typing 1.5s infinite;
+} 
