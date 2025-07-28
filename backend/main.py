@@ -22,6 +22,7 @@ from core.database import Base, get_db, engine, User, ChatSession, SessionLocal,
 from core.agent_ideator_endpoints import setup_agent_ideator_endpoints
 from core.ideator_handler import process_ideation_message, process_edit_message
 from core import deal_scorer
+from core import loopnet_scraper
 
 load_dotenv()
 
@@ -93,6 +94,14 @@ class DealSubmissionRequest(BaseModel):
 class DealSubmissionResponse(BaseModel):
     score: str
     html_response: str
+
+class LoopNetScrapeRequest(BaseModel):
+    url: str
+
+class LoopNetScrapeResponse(BaseModel):
+    success: bool
+    data: Optional[dict] = None
+    error: Optional[str] = None
 
 # --- App Initialization ---
 app = FastAPI(
@@ -202,6 +211,44 @@ setup_agent_ideator_endpoints(
     process_ideation_message=process_ideation_message,
     process_edit_message=process_edit_message
 )
+
+@app.post("/scrape-loopnet", response_model=LoopNetScrapeResponse)
+async def scrape_loopnet(req: LoopNetScrapeRequest):
+    """
+    Scrapes property data from a LoopNet URL.
+    This is a public endpoint that doesn't require authentication.
+    """
+    try:
+        # Validate that it's a LoopNet URL
+        if "loopnet.com" not in req.url.lower():
+            return LoopNetScrapeResponse(
+                success=False,
+                error="Please provide a valid LoopNet URL"
+            )
+        
+        # Run the scraper in a thread pool to avoid blocking
+        scraped_data = await run_in_threadpool(
+            loopnet_scraper.scrape_loopnet_listing,
+            req.url
+        )
+        
+        if scraped_data:
+            return LoopNetScrapeResponse(
+                success=True,
+                data=scraped_data
+            )
+        else:
+            return LoopNetScrapeResponse(
+                success=False,
+                error="Could not extract property data from the provided URL"
+            )
+            
+    except Exception as e:
+        logger.error(f"Error in LoopNet scraping: {e}", exc_info=True)
+        return LoopNetScrapeResponse(
+            success=False,
+            error="An error occurred while scraping the listing"
+        )
 
 @app.post("/score-deal", response_model=DealSubmissionResponse)
 async def score_deal(req: DealSubmissionRequest, db: Session = Depends(get_db)):

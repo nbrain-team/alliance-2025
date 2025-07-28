@@ -34,6 +34,7 @@ interface DealData {
   contact_office_address?: string;
   motivationToSell?: string;
   pricingFlexibility?: string;
+  scrapedData?: any;
   [key: string]: any;
 }
 
@@ -90,6 +91,35 @@ const DealScorerPage = () => {
     }]);
   };
 
+  const scrapeLoopNetData = async (address: string): Promise<any> => {
+    // Check if the address looks like a LoopNet URL
+    const loopnetUrlPattern = /loopnet\.com\/Listing\//i;
+    if (loopnetUrlPattern.test(address)) {
+      try {
+        setIsLoading(true);
+        addBotMessage("I'm analyzing the LoopNet listing for you...");
+        
+        const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+        const response = await axios.post(`${apiBaseUrl}/scrape-loopnet`, {
+          url: address
+        });
+        
+        if (response.data.success && response.data.data) {
+          return response.data.data;
+        } else {
+          console.error('LoopNet scraping failed:', response.data.error);
+          return null;
+        }
+      } catch (error) {
+        console.error('Error scraping LoopNet:', error);
+        return null;
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    return null;
+  };
+
   const evaluateInRealTime = (field: string, value: any): { flag?: 'warning' | 'error'; message?: string } => {
     // Real-time evaluation logic
     if (field === 'capRate' && value < 4.5) {
@@ -104,7 +134,7 @@ const DealScorerPage = () => {
     return {};
   };
 
-  const handleUserInput = (input: string) => {
+  const handleUserInput = async (input: string) => {
     addUserMessage(input);
     const updatedData = { ...dealData };
 
@@ -128,9 +158,35 @@ const DealScorerPage = () => {
 
       case 'onMarket_url':
         updatedData.listingUrl = input;
+        
+        // Try to scrape LoopNet data
+        const scrapedData = await scrapeLoopNetData(input);
+        if (scrapedData) {
+          updatedData.scrapedData = scrapedData;
+          updatedData.property_address = scrapedData.address;
+          if (scrapedData.propertyType) {
+            updatedData.propertyType = scrapedData.propertyType;
+          }
+          
+          // Show summary of scraped data
+          const summary = `Great! I found the listing. Here's what I gathered:
+📍 **${scrapedData.address}**
+🏢 Property Type: ${scrapedData.propertyType}
+💰 Asking Price: ${scrapedData.price}
+📊 Cap Rate: ${scrapedData.capRate}
+🏗️ Year Built: ${scrapedData.yearBuilt}
+📐 Size: ${scrapedData.squareFeet}
+
+This looks interesting! Let me get some additional information from you.`;
+          
+          addBotMessage(summary);
+        }
+        
         setDealData(updatedData);
         setCurrentStep('contact_name');
-        addBotMessage("Perfect! Now I'll need some contact information. What's your full name?", undefined, 'text');
+        setTimeout(() => {
+          addBotMessage("Now I'll need some contact information. What's your full name?", undefined, 'text');
+        }, scrapedData ? 3000 : 0);
         break;
 
       case 'offMarket_type':
@@ -142,6 +198,24 @@ const DealScorerPage = () => {
 
       case 'property_address':
         updatedData.property_address = input;
+        
+        // Check if this is a LoopNet URL for off-market flow
+        const offMarketScrapedData = await scrapeLoopNetData(input);
+        if (offMarketScrapedData) {
+          updatedData.scrapedData = offMarketScrapedData;
+          updatedData.property_address = offMarketScrapedData.address;
+          
+          const summary = `I see you've provided a LoopNet listing. Here's what I found:
+📍 **${offMarketScrapedData.address}**
+📊 Listed Cap Rate: ${offMarketScrapedData.capRate}
+🏗️ Year Built: ${offMarketScrapedData.yearBuilt}
+
+Let me gather some additional off-market specific information.`;
+          
+          addBotMessage(summary);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+        
         setDealData(updatedData);
         
         if (dealData.propertyType === 'Multifamily') {
@@ -415,19 +489,21 @@ const DealScorerPage = () => {
   const showOptions = lastMessage && lastMessage.type === 'bot' && lastMessage.options && lastMessage.inputType === 'radio';
 
   return (
-    <Container size="3" mt="6" mb="6">
-      <Card className="chat-container">
-        <Box p="5">
-          <Flex align="center" justify="between" mb="4">
+    <Container size="3" style={{ marginTop: '2rem', marginBottom: '2rem', height: 'calc(100vh - 4rem)' }}>
+      <Card className="chat-container" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <Box className="chat-header" p="4">
+          <Flex align="center" justify="between">
             <Heading size="6">Alliance Deal Concierge</Heading>
             <Button variant="ghost" size="2" onClick={resetChat}>
               <ReloadIcon />
               Start Over
             </Button>
           </Flex>
-          
-          <ScrollArea className="chat-messages" style={{ height: '500px' }}>
-            <Box pr="4">
+        </Box>
+        
+        <Box style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <ScrollArea className="chat-messages" style={{ flex: 1 }}>
+            <Box p="4">
               {messages.map((message) => (
                 <Box
                   key={message.id}
@@ -441,8 +517,8 @@ const DealScorerPage = () => {
                 >
                   <Card
                     style={{
-                      backgroundColor: message.type === 'user' ? '#1C2660' : '#f4f4f5',
-                      color: message.type === 'user' ? 'white' : 'inherit',
+                      backgroundColor: message.type === 'user' ? undefined : '#f4f4f5',
+                      color: message.type === 'user' ? '#1C2660' : 'inherit',
                       borderLeft: message.flag ? `4px solid ${
                         message.flag === 'error' ? '#e00' : 
                         message.flag === 'warning' ? '#f90' : 
@@ -451,7 +527,7 @@ const DealScorerPage = () => {
                     }}
                   >
                     <Box p="3">
-                      <Text size="2">{message.text}</Text>
+                      <Text size="2" style={{ whiteSpace: 'pre-line' }}>{message.text}</Text>
                     </Box>
                   </Card>
                 </Box>
@@ -461,7 +537,11 @@ const DealScorerPage = () => {
                 <Box className="message bot" mb="3">
                   <Card style={{ backgroundColor: '#f4f4f5' }}>
                     <Box p="3">
-                      <Text size="2" color="gray">Alliance is typing...</Text>
+                      <div className="typing-dots">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                      </div>
                     </Box>
                   </Card>
                 </Box>
@@ -471,28 +551,28 @@ const DealScorerPage = () => {
             </Box>
           </ScrollArea>
 
-          {showOptions && (
-            <Box mt="4">
-              <RadioGroup.Root onValueChange={handleRadioSelect}>
-                <Flex direction="column" gap="2">
-                  {lastMessage.options?.map((option) => (
-                    <label key={option} style={{ cursor: 'pointer' }}>
-                      <Flex align="center" gap="2" p="2" style={{
-                        border: '1px solid var(--gray-6)',
-                        borderRadius: '4px'
-                      }}>
-                        <RadioGroup.Item value={option} />
-                        <Text size="2">{option}</Text>
-                      </Flex>
-                    </label>
-                  ))}
-                </Flex>
-              </RadioGroup.Root>
-            </Box>
-          )}
+          <Box className="chat-input-area" p="4">
+            {showOptions && (
+              <Box mb="3">
+                <RadioGroup.Root onValueChange={handleRadioSelect}>
+                  <Flex direction="column" gap="2">
+                    {lastMessage.options?.map((option) => (
+                      <label key={option} style={{ cursor: 'pointer' }}>
+                        <Flex align="center" gap="2" p="2" style={{
+                          border: '1px solid var(--gray-6)',
+                          borderRadius: '4px'
+                        }}>
+                          <RadioGroup.Item value={option} />
+                          <Text size="2">{option}</Text>
+                        </Flex>
+                      </label>
+                    ))}
+                  </Flex>
+                </RadioGroup.Root>
+              </Box>
+            )}
 
-          {showInput && !isLoading && (
-            <Box mt="4">
+            {showInput && !isLoading && (
               <form onSubmit={handleTextSubmit}>
                 <Flex gap="2">
                   <TextField.Root
@@ -511,14 +591,14 @@ const DealScorerPage = () => {
                   </Button>
                 </Flex>
               </form>
-            </Box>
-          )}
+            )}
 
-          {isLoading && (
-            <Flex justify="center" mt="4">
-              <Text size="2" color="gray">Processing your submission...</Text>
-            </Flex>
-          )}
+            {isLoading && (
+              <Flex justify="center">
+                <Text size="2" color="gray">Processing your submission...</Text>
+              </Flex>
+            )}
+          </Box>
         </Box>
       </Card>
     </Container>
