@@ -158,6 +158,7 @@ const DealScorerPage = () => {
 
       case 'onMarket_url':
         updatedData.listingUrl = input;
+        setDealData(updatedData);
         
         // Try to scrape LoopNet data
         const scrapedData = await scrapeLoopNetData(input);
@@ -169,24 +170,31 @@ const DealScorerPage = () => {
           }
           
           // Show summary of scraped data
-          const summary = `Great! I found the listing. Here's what I gathered:
-📍 **${scrapedData.address}**
-🏢 Property Type: ${scrapedData.propertyType}
-💰 Asking Price: ${scrapedData.price}
-📊 Cap Rate: ${scrapedData.capRate}
-🏗️ Year Built: ${scrapedData.yearBuilt}
-📐 Size: ${scrapedData.squareFeet}
-
-This looks interesting! Let me get some additional information from you.`;
+          let summary = `Great! I found the listing. Here's what I gathered:\n\n`;
+          if (scrapedData.address) summary += `📍 **Address:** ${scrapedData.address}\n`;
+          if (scrapedData.propertyType) summary += `🏢 **Property Type:** ${scrapedData.propertyType}\n`;
+          if (scrapedData.price) summary += `💰 **Asking Price:** ${scrapedData.price}\n`;
+          if (scrapedData.units) summary += `🏠 **Units:** ${scrapedData.units}\n`;
+          if (scrapedData.squareFeet) summary += `📐 **Size:** ${scrapedData.squareFeet}\n`;
+          if (scrapedData.yearBuilt) summary += `🏗️ **Year Built:** ${scrapedData.yearBuilt}\n`;
+          if (scrapedData.capRate) summary += `📊 **Cap Rate:** ${scrapedData.capRate}\n`;
+          if (scrapedData.noi) summary += `💵 **NOI:** ${scrapedData.noi}\n`;
+          if (scrapedData.lotSize) summary += `🌳 **Lot Size:** ${scrapedData.lotSize}\n`;
+          
+          summary += `\nThis looks interesting! Let me get some additional information from you.`;
           
           addBotMessage(summary);
+          
+          // Wait for the summary to be displayed before asking the next question
+          setCurrentStep('contact_name');
+          setTimeout(() => {
+            addBotMessage("Now I'll need some contact information. What's your full name?", undefined, 'text');
+          }, 3500);
+        } else {
+          // If scraping failed, just continue
+          setCurrentStep('contact_name');
+          addBotMessage("I couldn't fetch the listing details, but let's continue. What's your full name?", undefined, 'text');
         }
-        
-        setDealData(updatedData);
-        setCurrentStep('contact_name');
-        setTimeout(() => {
-          addBotMessage("Now I'll need some contact information. What's your full name?", undefined, 'text');
-        }, scrapedData ? 3000 : 0);
         break;
 
       case 'offMarket_type':
@@ -198,38 +206,57 @@ This looks interesting! Let me get some additional information from you.`;
 
       case 'property_address':
         updatedData.property_address = input;
+        setDealData(updatedData);
         
         // Check if this is a LoopNet URL for off-market flow
         const offMarketScrapedData = await scrapeLoopNetData(input);
         if (offMarketScrapedData) {
           updatedData.scrapedData = offMarketScrapedData;
-          updatedData.property_address = offMarketScrapedData.address;
+          updatedData.property_address = offMarketScrapedData.address || input;
           
-          const summary = `I see you've provided a LoopNet listing. Here's what I found:
-📍 **${offMarketScrapedData.address}**
-📊 Listed Cap Rate: ${offMarketScrapedData.capRate}
-🏗️ Year Built: ${offMarketScrapedData.yearBuilt}
-
-Let me gather some additional off-market specific information.`;
+          let summary = `I see you've provided a LoopNet listing. Here's what I found:\n\n`;
+          if (offMarketScrapedData.address) summary += `📍 **Address:** ${offMarketScrapedData.address}\n`;
+          if (offMarketScrapedData.price) summary += `💰 **Listed Price:** ${offMarketScrapedData.price}\n`;
+          if (offMarketScrapedData.units) summary += `🏠 **Units:** ${offMarketScrapedData.units}\n`;
+          if (offMarketScrapedData.squareFeet) summary += `📐 **Size:** ${offMarketScrapedData.squareFeet}\n`;
+          if (offMarketScrapedData.yearBuilt) summary += `🏗️ **Year Built:** ${offMarketScrapedData.yearBuilt}\n`;
+          if (offMarketScrapedData.capRate) summary += `📊 **Listed Cap Rate:** ${offMarketScrapedData.capRate}\n`;
+          
+          summary += `\nLet me gather some additional off-market specific information.`;
           
           addBotMessage(summary);
-          await new Promise(resolve => setTimeout(resolve, 2000));
-        }
-        
-        setDealData(updatedData);
-        
-        if (dealData.propertyType === 'Multifamily') {
-          setCurrentStep('mf_unitCount');
-          addBotMessage("Got it! How many units does this property have?", undefined, 'text');
-        } else if (dealData.propertyType === 'Medical Office/Veterinary') {
-          setCurrentStep('mo_sqft');
-          addBotMessage("Thanks! What's the total leasable square footage?", undefined, 'text');
-        } else if (dealData.propertyType === 'Industrial') {
-          setCurrentStep('ind_sqft');
-          addBotMessage("Great! What's the total square footage of the industrial space?", undefined, 'text');
+          
+          // Wait before continuing
+          setTimeout(() => {
+            if (dealData.propertyType === 'Multifamily') {
+              setCurrentStep('mf_unitCount');
+              addBotMessage("Got it! How many units does this property have?", undefined, 'text');
+            } else if (dealData.propertyType === 'Medical Office/Veterinary') {
+              setCurrentStep('mo_sqft');
+              addBotMessage("Thanks! What's the total leasable square footage?", undefined, 'text');
+            } else if (dealData.propertyType === 'Industrial') {
+              setCurrentStep('ind_sqft');
+              addBotMessage("Great! What's the total square footage of the industrial space?", undefined, 'text');
+            } else {
+              setCurrentStep('contact_name');
+              addBotMessage("Thanks! Let me get your contact information. What's your full name?", undefined, 'text');
+            }
+          }, 3000);
         } else {
-          setCurrentStep('contact_name');
-          addBotMessage("Thanks! Let me get your contact information. What's your full name?", undefined, 'text');
+          // No scraping, continue normally
+          if (dealData.propertyType === 'Multifamily') {
+            setCurrentStep('mf_unitCount');
+            addBotMessage("Got it! How many units does this property have?", undefined, 'text');
+          } else if (dealData.propertyType === 'Medical Office/Veterinary') {
+            setCurrentStep('mo_sqft');
+            addBotMessage("Thanks! What's the total leasable square footage?", undefined, 'text');
+          } else if (dealData.propertyType === 'Industrial') {
+            setCurrentStep('ind_sqft');
+            addBotMessage("Great! What's the total square footage of the industrial space?", undefined, 'text');
+          } else {
+            setCurrentStep('contact_name');
+            addBotMessage("Thanks! Let me get your contact information. What's your full name?", undefined, 'text');
+          }
         }
         break;
 
@@ -492,12 +519,23 @@ Let me gather some additional off-market specific information.`;
     <Container size="3" style={{ marginTop: '2rem', marginBottom: '2rem', height: 'calc(100vh - 4rem)' }}>
       <Card className="chat-container" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
         <Box className="chat-header" p="4">
-          <Flex align="center" justify="between">
-            <Heading size="6">Alliance Deal Concierge</Heading>
-            <Button variant="ghost" size="2" onClick={resetChat}>
-              <ReloadIcon />
-              Start Over
-            </Button>
+          <Flex direction="column" align="center" gap="3">
+            <img 
+              src="/new-icons/adtv-logo.png" 
+              alt="Alliance Logo" 
+              className="chat-logo"
+              style={{ 
+                height: '60px',
+                marginBottom: '0.5rem'
+              }}
+            />
+            <Flex align="center" justify="between" style={{ width: '100%' }}>
+              <Heading size="6">Alliance Deal Concierge</Heading>
+              <Button variant="ghost" size="2" onClick={resetChat}>
+                <ReloadIcon />
+                Start Over
+              </Button>
+            </Flex>
           </Flex>
         </Box>
         
