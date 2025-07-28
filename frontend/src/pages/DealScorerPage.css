@@ -1,15 +1,14 @@
 /* Deal Scorer Chatbot Styles */
 
 .chat-container {
-  min-height: 600px;
-  max-height: calc(100vh - 120px); /* Prevent cutoff at top */
-  height: calc(100vh - 120px);
+  min-height: 400px;
+  max-height: calc(70vh - 4rem);
 }
 
 .chat-messages {
   scrollbar-width: thin;
   scrollbar-color: var(--gray-6) transparent;
-  height: calc(100% - 180px) !important; /* Account for header with logo and input area */
+  height: calc(100% - 220px) !important; /* Increased to account for larger logo */
 }
 
 .chat-messages::-webkit-scrollbar {
@@ -132,8 +131,8 @@ label:has(.rt-RadioGroupItem):hover > div {
 /* Header styling */
 .chat-header {
   border-bottom: 1px solid var(--gray-3);
-  padding-bottom: 1.5rem !important;
-  padding-top: 1.5rem !important;
+  padding-bottom: 2rem !important;
+  padding-top: 2rem !important;
   background-color: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(10px);
 }
@@ -153,4 +152,35 @@ label:has(.rt-RadioGroupItem):hover > div {
 .message .rt-Text strong {
   font-weight: 600;
   color: var(--gray-12);
+}
+
+/* Submissions table styling */
+.rt-TableRoot {
+  margin-top: 1rem;
+}
+
+.rt-TableCell a {
+  color: var(--blue-9);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.rt-TableCell a:hover {
+  color: var(--blue-10);
+}
+
+/* Dialog content styling */
+.rt-DialogContent {
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.rt-DialogContent a {
+  color: var(--blue-9);
+  text-decoration: none;
+}
+
+.rt-DialogContent a:hover {
+  text-decoration: underline;
 } 

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Container, Card, Box, Heading, Text, Button, TextField, RadioGroup, Flex, ScrollArea } from '@radix-ui/themes';
-import { ChevronRightIcon, ReloadIcon } from '@radix-ui/react-icons';
+import { Container, Card, Box, Heading, Text, Button, TextField, RadioGroup, Flex, ScrollArea, Table, Badge, Dialog } from '@radix-ui/themes';
+import { ChevronRightIcon, ReloadIcon, ExternalLinkIcon, PersonIcon, EnvelopeClosedIcon } from '@radix-ui/react-icons';
 import axios from 'axios';
 import './DealScorerPage.css';
 
@@ -38,6 +38,19 @@ interface DealData {
   [key: string]: any;
 }
 
+interface Submission {
+  id: string;
+  contact_name: string;
+  contact_email: string;
+  property_address: string;
+  property_type: string;
+  score: string;
+  loopnet_url?: string;
+  scraped_data?: any;
+  created_at: string;
+  status: string;
+}
+
 const DealScorerPage = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentStep, setCurrentStep] = useState('initial');
@@ -47,6 +60,9 @@ const DealScorerPage = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [showResult, setShowResult] = useState(false);
   const [resultHtml, setResultHtml] = useState('');
+  const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [selectedSubmission, setSelectedSubmission] = useState<any>(null);
+  const [showSubmissionDetail, setShowSubmissionDetail] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -66,7 +82,31 @@ const DealScorerPage = () => {
         'radio'
       );
     }, 500);
+    
+    // Load submissions
+    fetchSubmissions();
   }, []);
+
+  const fetchSubmissions = async () => {
+    try {
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+      const response = await axios.get(`${apiBaseUrl}/deal-submissions`);
+      setSubmissions(response.data.submissions);
+    } catch (error) {
+      console.error('Error fetching submissions:', error);
+    }
+  };
+
+  const fetchSubmissionDetail = async (submissionId: string) => {
+    try {
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+      const response = await axios.get(`${apiBaseUrl}/deal-submissions/${submissionId}`);
+      setSelectedSubmission(response.data);
+      setShowSubmissionDetail(true);
+    } catch (error) {
+      console.error('Error fetching submission detail:', error);
+    }
+  };
 
   const addBotMessage = (text: string, options?: string[], inputType?: 'text' | 'email' | 'phone' | 'radio', flag?: 'warning' | 'error' | 'success') => {
     setIsTyping(true);
@@ -450,6 +490,8 @@ const DealScorerPage = () => {
 
       setTimeout(() => {
         setShowResult(true);
+        // Refresh submissions list after new submission
+        fetchSubmissions();
       }, 2000);
 
     } catch (error: any) {
@@ -493,10 +535,19 @@ const DealScorerPage = () => {
     }, 500);
   };
 
+  const getScoreBadgeColor = (score: string) => {
+    switch (score) {
+      case 'Green': return 'green';
+      case 'Yellow': return 'amber';
+      case 'Red': return 'red';
+      default: return 'gray';
+    }
+  };
+
   if (showResult) {
     return (
-      <Container size="3" mt="6">
-        <Card>
+      <Container size="4" style={{ marginTop: '2rem', marginBottom: '2rem' }}>
+        <Card style={{ marginBottom: '2rem' }}>
           <Box p="4">
             <Heading align="center" mb="4">Deal Analysis Complete</Heading>
             <div dangerouslySetInnerHTML={{ __html: resultHtml }} />
@@ -505,6 +556,17 @@ const DealScorerPage = () => {
                 Submit Another Deal
               </Button>
             </Flex>
+          </Box>
+        </Card>
+        
+        {/* Submissions List */}
+        <Card>
+          <Box p="4">
+            <Heading size="5" mb="4">Recent Submissions</Heading>
+            <SubmissionsList 
+              submissions={submissions} 
+              onSelectSubmission={fetchSubmissionDetail}
+            />
           </Box>
         </Card>
       </Container>
@@ -516,130 +578,298 @@ const DealScorerPage = () => {
   const showOptions = lastMessage && lastMessage.type === 'bot' && lastMessage.options && lastMessage.inputType === 'radio';
 
   return (
-    <Container size="3" style={{ marginTop: '2rem', marginBottom: '2rem', height: 'calc(100vh - 4rem)' }}>
-      <Card className="chat-container" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-        <Box className="chat-header" p="4">
-          <Flex direction="column" align="center" gap="3">
-            <img 
-              src="/new-icons/adtv-logo.png" 
-              alt="Alliance Logo" 
-              className="chat-logo"
-              style={{ 
-                height: '60px',
-                marginBottom: '0.5rem'
-              }}
-            />
-            <Flex align="center" justify="between" style={{ width: '100%' }}>
-              <Heading size="6">Alliance Deal Concierge</Heading>
-              <Button variant="ghost" size="2" onClick={resetChat}>
-                <ReloadIcon />
-                Start Over
-              </Button>
+    <Container size="4" style={{ marginTop: '4rem', marginBottom: '2rem' }}>
+      <Flex gap="4" direction="column">
+        {/* Chat Interface */}
+        <Card className="chat-container" style={{ height: 'calc(70vh - 4rem)', display: 'flex', flexDirection: 'column' }}>
+          <Box className="chat-header" p="4">
+            <Flex direction="column" align="center" gap="3">
+              <img 
+                src="/new-icons/adtv-logo.png" 
+                alt="Alliance Logo" 
+                className="chat-logo"
+                style={{ 
+                  height: '120px',
+                  marginBottom: '0.5rem'
+                }}
+              />
+              <Flex align="center" justify="between" style={{ width: '100%' }}>
+                <Heading size="6">Alliance Deal Concierge</Heading>
+                <Button variant="ghost" size="2" onClick={resetChat}>
+                  <ReloadIcon />
+                  Start Over
+                </Button>
+              </Flex>
             </Flex>
-          </Flex>
-        </Box>
-        
-        <Box style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          <ScrollArea className="chat-messages" style={{ flex: 1 }}>
-            <Box p="4">
-              {messages.map((message) => (
-                <Box
-                  key={message.id}
-                  className={`message ${message.type}`}
-                  mb="3"
-                  style={{
-                    alignSelf: message.type === 'user' ? 'flex-end' : 'flex-start',
-                    maxWidth: '80%',
-                    marginLeft: message.type === 'user' ? 'auto' : '0',
-                  }}
-                >
-                  <Card
+          </Box>
+          
+          <Box style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <ScrollArea className="chat-messages" style={{ flex: 1 }}>
+              <Box p="4">
+                {messages.map((message) => (
+                  <Box
+                    key={message.id}
+                    className={`message ${message.type}`}
+                    mb="3"
                     style={{
-                      backgroundColor: message.type === 'user' ? undefined : '#f4f4f5',
-                      color: message.type === 'user' ? '#1C2660' : 'inherit',
-                      borderLeft: message.flag ? `4px solid ${
-                        message.flag === 'error' ? '#e00' : 
-                        message.flag === 'warning' ? '#f90' : 
-                        '#0a0'
-                      }` : 'none',
+                      alignSelf: message.type === 'user' ? 'flex-end' : 'flex-start',
+                      maxWidth: '80%',
+                      marginLeft: message.type === 'user' ? 'auto' : '0',
                     }}
                   >
-                    <Box p="3">
-                      <Text size="2" style={{ whiteSpace: 'pre-line' }}>{message.text}</Text>
-                    </Box>
-                  </Card>
-                </Box>
-              ))}
-              
-              {isTyping && (
-                <Box className="message bot" mb="3">
-                  <Card style={{ backgroundColor: '#f4f4f5' }}>
-                    <Box p="3">
-                      <div className="typing-dots">
-                        <span></span>
-                        <span></span>
-                        <span></span>
-                      </div>
-                    </Box>
-                  </Card>
+                    <Card
+                      style={{
+                        backgroundColor: message.type === 'user' ? undefined : '#f4f4f5',
+                        color: message.type === 'user' ? '#1C2660' : 'inherit',
+                        borderLeft: message.flag ? `4px solid ${
+                          message.flag === 'error' ? '#e00' : 
+                          message.flag === 'warning' ? '#f90' : 
+                          '#0a0'
+                        }` : 'none',
+                      }}
+                    >
+                      <Box p="3">
+                        <Text size="2" style={{ whiteSpace: 'pre-line' }}>{message.text}</Text>
+                      </Box>
+                    </Card>
+                  </Box>
+                ))}
+                
+                {isTyping && (
+                  <Box className="message bot" mb="3">
+                    <Card style={{ backgroundColor: '#f4f4f5' }}>
+                      <Box p="3">
+                        <div className="typing-dots">
+                          <span></span>
+                          <span></span>
+                          <span></span>
+                        </div>
+                      </Box>
+                    </Card>
+                  </Box>
+                )}
+                
+                <div ref={messagesEndRef} />
+              </Box>
+            </ScrollArea>
+
+            <Box className="chat-input-area" p="4">
+              {showOptions && (
+                <Box mb="3">
+                  <RadioGroup.Root onValueChange={handleRadioSelect}>
+                    <Flex direction="column" gap="2">
+                      {lastMessage.options?.map((option) => (
+                        <label key={option} style={{ cursor: 'pointer' }}>
+                          <Flex align="center" gap="2" p="2" style={{
+                            border: '1px solid var(--gray-6)',
+                            borderRadius: '4px'
+                          }}>
+                            <RadioGroup.Item value={option} />
+                            <Text size="2">{option}</Text>
+                          </Flex>
+                        </label>
+                      ))}
+                    </Flex>
+                  </RadioGroup.Root>
                 </Box>
               )}
-              
-              <div ref={messagesEndRef} />
-            </Box>
-          </ScrollArea>
 
-          <Box className="chat-input-area" p="4">
-            {showOptions && (
-              <Box mb="3">
-                <RadioGroup.Root onValueChange={handleRadioSelect}>
-                  <Flex direction="column" gap="2">
-                    {lastMessage.options?.map((option) => (
-                      <label key={option} style={{ cursor: 'pointer' }}>
-                        <Flex align="center" gap="2" p="2" style={{
-                          border: '1px solid var(--gray-6)',
-                          borderRadius: '4px'
-                        }}>
-                          <RadioGroup.Item value={option} />
-                          <Text size="2">{option}</Text>
-                        </Flex>
-                      </label>
-                    ))}
+              {showInput && !isLoading && (
+                <form onSubmit={handleTextSubmit}>
+                  <Flex gap="2">
+                    <TextField.Root
+                      placeholder={
+                        lastMessage.inputType === 'email' ? 'Enter your email...' :
+                        lastMessage.inputType === 'phone' ? 'Enter your phone number...' :
+                        'Type your answer...'
+                      }
+                      type={lastMessage.inputType === 'phone' ? 'tel' : (lastMessage.inputType === 'radio' ? 'text' : lastMessage.inputType)}
+                      value={userInput}
+                      onChange={(e) => setUserInput(e.target.value)}
+                      style={{ flex: 1 }}
+                    />
+                    <Button type="submit" disabled={!userInput.trim()}>
+                      <ChevronRightIcon />
+                    </Button>
                   </Flex>
-                </RadioGroup.Root>
-              </Box>
-            )}
+                </form>
+              )}
 
-            {showInput && !isLoading && (
-              <form onSubmit={handleTextSubmit}>
-                <Flex gap="2">
-                  <TextField.Root
-                    placeholder={
-                      lastMessage.inputType === 'email' ? 'Enter your email...' :
-                      lastMessage.inputType === 'phone' ? 'Enter your phone number...' :
-                      'Type your answer...'
-                    }
-                    type={lastMessage.inputType === 'phone' ? 'tel' : (lastMessage.inputType === 'radio' ? 'text' : lastMessage.inputType)}
-                    value={userInput}
-                    onChange={(e) => setUserInput(e.target.value)}
-                    style={{ flex: 1 }}
-                  />
-                  <Button type="submit" disabled={!userInput.trim()}>
-                    <ChevronRightIcon />
-                  </Button>
+              {isLoading && (
+                <Flex justify="center">
+                  <Text size="2" color="gray">Processing your submission...</Text>
                 </Flex>
-              </form>
-            )}
-
-            {isLoading && (
-              <Flex justify="center">
-                <Text size="2" color="gray">Processing your submission...</Text>
-              </Flex>
-            )}
+              )}
+            </Box>
           </Box>
-        </Box>
-      </Card>
+        </Card>
+
+        {/* Submissions List */}
+        <Card>
+          <Box p="4">
+            <Heading size="5" mb="4">Recent Submissions</Heading>
+            <SubmissionsList 
+              submissions={submissions} 
+              onSelectSubmission={fetchSubmissionDetail}
+            />
+          </Box>
+        </Card>
+      </Flex>
+
+      {/* Submission Detail Dialog */}
+      <Dialog.Root open={showSubmissionDetail} onOpenChange={setShowSubmissionDetail}>
+        <Dialog.Content style={{ maxWidth: 650 }}>
+          <Dialog.Title>Submission Details</Dialog.Title>
+          {selectedSubmission && (
+            <Box mt="4">
+              <Flex direction="column" gap="3">
+                <Box>
+                  <Text size="2" weight="bold">Contact Information</Text>
+                  <Text size="2" as="div" mt="1">
+                    <Flex align="center" gap="2">
+                      <PersonIcon />
+                      {selectedSubmission.contact_name}
+                    </Flex>
+                  </Text>
+                  <Text size="2" as="div" mt="1">
+                    <Flex align="center" gap="2">
+                      <EnvelopeClosedIcon />
+                      <a href={`mailto:${selectedSubmission.contact_email}`}>{selectedSubmission.contact_email}</a>
+                    </Flex>
+                  </Text>
+                  {selectedSubmission.contact_phone && (
+                    <Text size="2" as="div" mt="1">
+                      📞 {selectedSubmission.contact_phone}
+                    </Text>
+                  )}
+                </Box>
+
+                <Box>
+                  <Text size="2" weight="bold">Property Details</Text>
+                  <Text size="2" as="div" mt="1">📍 {selectedSubmission.property_address}</Text>
+                  <Text size="2" as="div" mt="1">🏢 {selectedSubmission.property_type}</Text>
+                  <Flex align="center" gap="2" mt="1">
+                    <Text size="2">Score:</Text>
+                    <Badge color={getScoreBadgeColor(selectedSubmission.score)}>
+                      {selectedSubmission.score}
+                    </Badge>
+                  </Flex>
+                </Box>
+
+                {selectedSubmission.additional_data?.listingUrl && (
+                  <Box>
+                    <Text size="2" weight="bold">Listing URL</Text>
+                    <Text size="2" as="div" mt="1">
+                      <a href={selectedSubmission.additional_data.listingUrl} target="_blank" rel="noopener noreferrer">
+                        {selectedSubmission.additional_data.listingUrl}
+                        <ExternalLinkIcon style={{ marginLeft: '4px', display: 'inline' }} />
+                      </a>
+                    </Text>
+                  </Box>
+                )}
+
+                {selectedSubmission.additional_data?.scrapedData && (
+                  <Box>
+                    <Text size="2" weight="bold">Scraped Property Data</Text>
+                    <Box mt="1" p="2" style={{ backgroundColor: 'var(--gray-2)', borderRadius: '4px' }}>
+                      {Object.entries(selectedSubmission.additional_data.scrapedData).map(([key, value]) => (
+                        <Text key={key} size="2" as="div">
+                          <strong>{key}:</strong> {String(value)}
+                        </Text>
+                      ))}
+                    </Box>
+                  </Box>
+                )}
+
+                <Box>
+                  <Text size="2" weight="bold">Generated Response</Text>
+                  <Box mt="2" style={{ maxHeight: '300px', overflow: 'auto' }}>
+                    <div dangerouslySetInnerHTML={{ __html: selectedSubmission.generated_response }} />
+                  </Box>
+                </Box>
+              </Flex>
+            </Box>
+          )}
+          <Flex gap="3" mt="5" justify="end">
+            <Dialog.Close>
+              <Button variant="soft" color="gray">Close</Button>
+            </Dialog.Close>
+          </Flex>
+        </Dialog.Content>
+      </Dialog.Root>
     </Container>
+  );
+};
+
+// Submissions List Component
+const SubmissionsList = ({ submissions, onSelectSubmission }: { submissions: Submission[], onSelectSubmission: (id: string) => void }) => {
+  const getScoreBadgeColor = (score: string) => {
+    switch (score) {
+      case 'Green': return 'green';
+      case 'Yellow': return 'amber';
+      case 'Red': return 'red';
+      default: return 'gray';
+    }
+  };
+
+  if (submissions.length === 0) {
+    return (
+      <Text size="2" color="gray">No submissions yet. Complete the chat above to submit your first deal!</Text>
+    );
+  }
+
+  return (
+    <Table.Root>
+      <Table.Header>
+        <Table.Row>
+          <Table.ColumnHeaderCell>Contact</Table.ColumnHeaderCell>
+          <Table.ColumnHeaderCell>Property</Table.ColumnHeaderCell>
+          <Table.ColumnHeaderCell>Type</Table.ColumnHeaderCell>
+          <Table.ColumnHeaderCell>Score</Table.ColumnHeaderCell>
+          <Table.ColumnHeaderCell>Date</Table.ColumnHeaderCell>
+          <Table.ColumnHeaderCell>Action</Table.ColumnHeaderCell>
+        </Table.Row>
+      </Table.Header>
+
+      <Table.Body>
+        {submissions.map((submission) => (
+          <Table.Row key={submission.id}>
+            <Table.Cell>
+              <Text size="2" weight="medium">{submission.contact_name}</Text>
+              <Text size="1" color="gray" as="div">{submission.contact_email}</Text>
+            </Table.Cell>
+            <Table.Cell>
+              <Text size="2">{submission.property_address}</Text>
+              {submission.loopnet_url && (
+                <a href={submission.loopnet_url} target="_blank" rel="noopener noreferrer">
+                  <ExternalLinkIcon style={{ marginLeft: '4px' }} />
+                </a>
+              )}
+            </Table.Cell>
+            <Table.Cell>
+              <Text size="2">{submission.property_type}</Text>
+            </Table.Cell>
+            <Table.Cell>
+              <Badge color={getScoreBadgeColor(submission.score)}>
+                {submission.score}
+              </Badge>
+            </Table.Cell>
+            <Table.Cell>
+              <Text size="2">{new Date(submission.created_at).toLocaleDateString()}</Text>
+            </Table.Cell>
+            <Table.Cell>
+              <Button 
+                size="1" 
+                variant="soft" 
+                onClick={() => onSelectSubmission(submission.id)}
+              >
+                View Details
+              </Button>
+            </Table.Cell>
+          </Table.Row>
+        ))}
+      </Table.Body>
+    </Table.Root>
   );
 };
 

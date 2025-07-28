@@ -170,6 +170,17 @@ def update_db_schema(db: Session):
     except Exception as e:
         # This can happen if the 'users' table doesn't exist yet, which is fine.
         logger.info(f"Could not check 'users' table, likely because it does not exist yet. Will be created shortly. Details: {e}")
+    
+    # Check for 'additional_data' column in 'deal_submissions' table
+    try:
+        if inspector.has_table('deal_submissions'):
+            deal_columns = [c['name'] for c in inspector.get_columns('deal_submissions')]
+            if 'additional_data' not in deal_columns:
+                logger.info("Column 'additional_data' not found in 'deal_submissions' table. Adding it now.")
+                db.execute(text('ALTER TABLE deal_submissions ADD COLUMN additional_data JSON'))
+                logger.info("Successfully added 'additional_data' column to 'deal_submissions' table.")
+    except Exception as e:
+        logger.info(f"Could not update 'deal_submissions' table: {e}")
 
 @app.on_event("startup")
 def on_startup():
@@ -265,7 +276,15 @@ async def score_deal(req: DealSubmissionRequest, db: Session = Depends(get_db)):
         # 2. Generate the HTML response letter
         html_response = deal_scorer.generate_response_letter(score_result, deal_data)
 
-        # 3. Save the submission and response to the database
+        # 3. Parse additional_data if provided
+        additional_data_dict = None
+        if req.additional_data:
+            try:
+                additional_data_dict = json.loads(req.additional_data)
+            except:
+                additional_data_dict = {"raw": req.additional_data}
+
+        # 4. Save the submission and response to the database
         new_submission = DealSubmission(
             property_address=req.property_address,
             property_type=req.property_type,
@@ -275,11 +294,12 @@ async def score_deal(req: DealSubmissionRequest, db: Session = Depends(get_db)):
             contact_office_address=req.contact_office_address,
             score=score_result["score"],
             generated_response=html_response,
+            additional_data=additional_data_dict,
         )
         db.add(new_submission)
         db.commit()
 
-        # 4. Return the score and the HTML response to the frontend
+        # 5. Return the score and the HTML response to the frontend
         return DealSubmissionResponse(
             score=score_result["score"],
             html_response=html_response
@@ -288,6 +308,85 @@ async def score_deal(req: DealSubmissionRequest, db: Session = Depends(get_db)):
         logger.error(f"Error scoring deal: {e}", exc_info=True)
         db.rollback()
         raise HTTPException(status_code=500, detail="An internal error occurred while scoring the deal.")
+
+
+@app.get("/deal-submissions")
+async def get_deal_submissions(
+    limit: int = 50,
+    offset: int = 0,
+    db: Session = Depends(get_db)
+):
+    """
+    Get a list of all deal submissions.
+    This is a public endpoint for now but should be protected in production.
+    """
+    try:
+        submissions = db.query(DealSubmission)\
+            .order_by(DealSubmission.created_at.desc())\
+            .limit(limit)\
+            .offset(offset)\
+            .all()
+        
+        # Format the response
+        results = []
+        for sub in submissions:
+            # Extract key info from additional_data
+            loopnet_url = None
+            scraped_data = {}
+            if sub.additional_data:
+                loopnet_url = sub.additional_data.get('listingUrl')
+                scraped_data = sub.additional_data.get('scrapedData', {})
+            
+            results.append({
+                "id": sub.id,
+                "contact_name": sub.contact_name,
+                "contact_email": sub.contact_email,
+                "property_address": sub.property_address,
+                "property_type": sub.property_type,
+                "score": sub.score,
+                "loopnet_url": loopnet_url,
+                "scraped_data": scraped_data,
+                "created_at": sub.created_at.isoformat(),
+                "status": sub.status
+            })
+        
+        return {"submissions": results, "total": len(results)}
+    except Exception as e:
+        logger.error(f"Error fetching deal submissions: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Error fetching submissions")
+
+
+@app.get("/deal-submissions/{submission_id}")
+async def get_deal_submission_detail(
+    submission_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Get detailed information about a specific deal submission.
+    """
+    try:
+        submission = db.query(DealSubmission).filter(DealSubmission.id == submission_id).first()
+        if not submission:
+            raise HTTPException(status_code=404, detail="Submission not found")
+        
+        return {
+            "id": submission.id,
+            "contact_name": submission.contact_name,
+            "contact_email": submission.contact_email,
+            "contact_phone": submission.contact_phone,
+            "property_address": submission.property_address,
+            "property_type": submission.property_type,
+            "score": submission.score,
+            "status": submission.status,
+            "additional_data": submission.additional_data,
+            "generated_response": submission.generated_response,
+            "created_at": submission.created_at.isoformat()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching deal submission detail: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Error fetching submission detail")
 
 
 @app.get("/")

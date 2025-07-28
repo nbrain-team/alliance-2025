@@ -90,6 +90,7 @@ class DealSubmission(Base):
     score = Column(String, nullable=False) # Red, Yellow, Green
     status = Column(String, default="submitted") # submitted, reviewed, etc.
     generated_response = Column(String, nullable=False) # The HTML of the generated letter
+    additional_data = Column(JSON, nullable=True) # All collected data including LoopNet URL, scraped data, etc.
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 

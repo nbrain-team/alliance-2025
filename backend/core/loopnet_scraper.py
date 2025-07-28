@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 from typing import Dict, Optional
 import re
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -12,96 +13,126 @@ def scrape_loopnet_listing(url: str) -> Optional[Dict[str, any]]:
     Note: In production, you should respect robots.txt and terms of service.
     This is a simplified example that may need adjustment based on LoopNet's structure.
     """
-    try:
-        # Add headers to appear as a regular browser
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-        
-        response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
-        
-        soup = BeautifulSoup(response.content, 'html.parser')
-        
-        # Extract data based on common LoopNet patterns
-        # Note: These selectors may need to be updated based on actual HTML structure
-        property_data = {}
-        
-        # Try to extract address
-        address_elem = soup.find('h1', class_='property-address') or soup.find('div', class_='address')
-        if address_elem:
-            property_data['address'] = address_elem.get_text(strip=True)
-        
-        # Try to extract property type
-        type_elem = soup.find('span', class_='property-type') or soup.find('div', class_='type')
-        if type_elem:
-            property_data['propertyType'] = type_elem.get_text(strip=True)
-        
-        # Try to extract price
-        price_elem = soup.find('div', class_='price') or soup.find('span', class_='asking-price')
-        if price_elem:
-            property_data['price'] = price_elem.get_text(strip=True)
-        
-        # Try to extract key metrics
-        metrics_section = soup.find('div', class_='property-metrics') or soup.find('section', class_='metrics')
-        if metrics_section:
-            # Look for cap rate
-            cap_rate_match = re.search(r'cap\s*rate[:\s]*([0-9.]+)%', metrics_section.get_text(), re.IGNORECASE)
-            if cap_rate_match:
-                property_data['capRate'] = f"{cap_rate_match.group(1)}%"
+    max_retries = 2
+    retry_delay = 2
+    
+    for attempt in range(max_retries):
+        try:
+            # Add headers to appear as a regular browser
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1'
+            }
             
-            # Look for NOI
-            noi_match = re.search(r'noi[:\s]*\$([0-9,]+)', metrics_section.get_text(), re.IGNORECASE)
-            if noi_match:
-                property_data['noi'] = f"${noi_match.group(1)}"
+            # Increased timeout to 30 seconds
+            response = requests.get(url, headers=headers, timeout=30)
+            response.raise_for_status()
             
-            # Look for square footage
-            sqft_match = re.search(r'([0-9,]+)\s*(?:sf|sq\s*ft)', metrics_section.get_text(), re.IGNORECASE)
-            if sqft_match:
-                property_data['squareFeet'] = f"{sqft_match.group(1)} SF"
+            soup = BeautifulSoup(response.content, 'html.parser')
             
-            # Look for year built
-            year_match = re.search(r'(?:built|year)[:\s]*([0-9]{4})', metrics_section.get_text(), re.IGNORECASE)
-            if year_match:
-                property_data['yearBuilt'] = int(year_match.group(1))
+            # Extract data based on common LoopNet patterns
+            # Note: These selectors may need to be updated based on actual HTML structure
+            property_data = {}
             
-            # Look for units (for multifamily)
-            units_match = re.search(r'([0-9]+)\s*units?', metrics_section.get_text(), re.IGNORECASE)
-            if units_match:
-                property_data['units'] = int(units_match.group(1))
-        
-        # Look for lot size
-        lot_elem = soup.find(text=re.compile(r'lot\s*size', re.IGNORECASE))
-        if lot_elem:
-            lot_parent = lot_elem.parent
-            lot_match = re.search(r'([0-9.,]+)\s*(?:acres?|ac)', lot_parent.get_text(), re.IGNORECASE)
-            if lot_match:
-                property_data['lotSize'] = f"{lot_match.group(1)} Acres"
-        
-        # If we didn't find much data, try a more generic approach
-        if len(property_data) < 3:
-            # Look for any structured data
-            script_tags = soup.find_all('script', type='application/ld+json')
-            for script in script_tags:
-                try:
-                    import json
-                    data = json.loads(script.string)
-                    if isinstance(data, dict):
-                        if 'name' in data:
-                            property_data['address'] = data.get('name', '')
-                        if 'address' in data:
-                            property_data['address'] = f"{data['address'].get('streetAddress', '')}, {data['address'].get('addressLocality', '')}, {data['address'].get('addressRegion', '')}"
-                except:
-                    pass
-        
-        return property_data if property_data else None
-        
-    except requests.RequestException as e:
-        logger.error(f"Error fetching LoopNet URL: {e}")
-        return None
-    except Exception as e:
-        logger.error(f"Error parsing LoopNet data: {e}")
-        return None
+            # Try to extract address
+            address_elem = soup.find('h1', class_='property-address') or soup.find('div', class_='address')
+            if address_elem:
+                property_data['address'] = address_elem.get_text(strip=True)
+            
+            # Try to extract property type
+            type_elem = soup.find('span', class_='property-type') or soup.find('div', class_='type')
+            if type_elem:
+                property_data['propertyType'] = type_elem.get_text(strip=True)
+            
+            # Try to extract price
+            price_elem = soup.find('div', class_='price') or soup.find('span', class_='asking-price')
+            if price_elem:
+                property_data['price'] = price_elem.get_text(strip=True)
+            
+            # Try to extract key metrics
+            metrics_section = soup.find('div', class_='property-metrics') or soup.find('section', class_='metrics')
+            if metrics_section:
+                # Look for cap rate
+                cap_rate_match = re.search(r'cap\s*rate[:\s]*([0-9.]+)%', metrics_section.get_text(), re.IGNORECASE)
+                if cap_rate_match:
+                    property_data['capRate'] = f"{cap_rate_match.group(1)}%"
+                
+                # Look for NOI
+                noi_match = re.search(r'noi[:\s]*\$([0-9,]+)', metrics_section.get_text(), re.IGNORECASE)
+                if noi_match:
+                    property_data['noi'] = f"${noi_match.group(1)}"
+                
+                # Look for square footage
+                sqft_match = re.search(r'([0-9,]+)\s*(?:sf|sq\s*ft)', metrics_section.get_text(), re.IGNORECASE)
+                if sqft_match:
+                    property_data['squareFeet'] = f"{sqft_match.group(1)} SF"
+                
+                # Look for year built
+                year_match = re.search(r'(?:built|year)[:\s]*([0-9]{4})', metrics_section.get_text(), re.IGNORECASE)
+                if year_match:
+                    property_data['yearBuilt'] = int(year_match.group(1))
+                
+                # Look for units (for multifamily)
+                units_match = re.search(r'([0-9]+)\s*units?', metrics_section.get_text(), re.IGNORECASE)
+                if units_match:
+                    property_data['units'] = int(units_match.group(1))
+            
+            # Look for lot size
+            lot_elem = soup.find(text=re.compile(r'lot\s*size', re.IGNORECASE))
+            if lot_elem:
+                lot_parent = lot_elem.parent
+                lot_match = re.search(r'([0-9.,]+)\s*(?:acres?|ac)', lot_parent.get_text(), re.IGNORECASE)
+                if lot_match:
+                    property_data['lotSize'] = f"{lot_match.group(1)} Acres"
+            
+            # If we didn't find much data, try a more generic approach
+            if len(property_data) < 3:
+                # Look for any structured data
+                script_tags = soup.find_all('script', type='application/ld+json')
+                for script in script_tags:
+                    try:
+                        import json
+                        data = json.loads(script.string)
+                        if isinstance(data, dict):
+                            if 'name' in data:
+                                property_data['address'] = data.get('name', '')
+                            if 'address' in data:
+                                property_data['address'] = f"{data['address'].get('streetAddress', '')}, {data['address'].get('addressLocality', '')}, {data['address'].get('addressRegion', '')}"
+                    except:
+                        pass
+            
+            # If we found some data, return it
+            if property_data:
+                logger.info(f"Successfully scraped LoopNet data: {property_data}")
+                return property_data
+            
+            # If no data found, try extracting from page text
+            page_text = soup.get_text()
+            extracted_info = extract_property_info_from_text(page_text)
+            if extracted_info:
+                logger.info(f"Extracted property info from text: {extracted_info}")
+                return extracted_info
+            
+            return None
+            
+        except requests.Timeout:
+            logger.warning(f"Timeout on attempt {attempt + 1} of {max_retries}")
+            if attempt < max_retries - 1:
+                time.sleep(retry_delay)
+                continue
+            else:
+                logger.error("Max retries reached due to timeouts")
+                return None
+        except requests.RequestException as e:
+            logger.error(f"Error fetching LoopNet URL: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Error parsing LoopNet data: {e}")
+            return None
 
 def extract_property_info_from_text(text: str) -> Dict[str, any]:
     """
