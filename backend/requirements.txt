@@ -24,4 +24,5 @@ tabulate
 xlrd
 Jinja2
 pandas
-email-validator 
+email-validator
+# twilio  # Uncomment to enable SMS verification (optional) 

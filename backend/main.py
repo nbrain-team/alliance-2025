@@ -23,6 +23,7 @@ from core.agent_ideator_endpoints import setup_agent_ideator_endpoints
 from core.ideator_handler import process_ideation_message, process_edit_message
 from core import deal_scorer
 from core import loopnet_scraper
+from core import sms_verification
 
 load_dotenv()
 
@@ -102,6 +103,20 @@ class LoopNetScrapeResponse(BaseModel):
     success: bool
     data: Optional[dict] = None
     error: Optional[str] = None
+
+class SmsVerificationRequest(BaseModel):
+    phone_number: str
+
+class SmsVerificationResponse(BaseModel):
+    success: bool
+    message: Optional[str] = None
+
+class SmsCodeVerificationRequest(BaseModel):
+    phone_number: str
+    code: str
+
+class SmsCodeVerificationResponse(BaseModel):
+    valid: bool
 
 # --- App Initialization ---
 app = FastAPI(
@@ -260,6 +275,44 @@ async def scrape_loopnet(req: LoopNetScrapeRequest):
             success=False,
             error="An error occurred while scraping the listing"
         )
+
+@app.post("/send-sms-verification", response_model=SmsVerificationResponse)
+async def send_sms_verification_endpoint(req: SmsVerificationRequest):
+    """
+    Send SMS verification code to the provided phone number.
+    """
+    try:
+        success = sms_verification.send_sms_verification(req.phone_number)
+        if success:
+            return SmsVerificationResponse(
+                success=True,
+                message="Verification code sent successfully"
+            )
+        else:
+            return SmsVerificationResponse(
+                success=False,
+                message="Failed to send verification code"
+            )
+    except Exception as e:
+        logger.error(f"Error in SMS verification: {e}", exc_info=True)
+        return SmsVerificationResponse(
+            success=False,
+            message="An error occurred while sending verification code"
+        )
+
+
+@app.post("/verify-sms-code", response_model=SmsCodeVerificationResponse)
+async def verify_sms_code_endpoint(req: SmsCodeVerificationRequest):
+    """
+    Verify the SMS code for the given phone number.
+    """
+    try:
+        is_valid = sms_verification.verify_sms_code(req.phone_number, req.code)
+        return SmsCodeVerificationResponse(valid=is_valid)
+    except Exception as e:
+        logger.error(f"Error verifying SMS code: {e}", exc_info=True)
+        return SmsCodeVerificationResponse(valid=False)
+
 
 @app.post("/score-deal", response_model=DealSubmissionResponse)
 async def score_deal(req: DealSubmissionRequest, db: Session = Depends(get_db)):

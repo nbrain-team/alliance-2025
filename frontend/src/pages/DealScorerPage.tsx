@@ -35,6 +35,8 @@ interface DealData {
   motivationToSell?: string;
   pricingFlexibility?: string;
   scrapedData?: any;
+  hasFinancialRecords?: boolean;
+  phoneVerified?: boolean;
   [key: string]: any;
 }
 
@@ -344,8 +346,20 @@ const DealScorerPage = () => {
       case 'mf_rentRoll':
         updatedData.rentRoll = parseFloat(input);
         setDealData(updatedData);
+        setCurrentStep('financial_records');
+        addBotMessage("Do you have financial records on the tenants you would like to upload for this analysis? If not, we can do that at a later time.", ['Yes, I have records to upload', 'No, maybe later'], 'radio');
+        break;
+
+      case 'financial_records':
+        updatedData.hasFinancialRecords = input.toLowerCase().includes('yes');
+        setDealData(updatedData);
+        if (updatedData.hasFinancialRecords) {
+          addBotMessage("Great! You can upload those records after we complete this initial assessment. Our team will reach out to coordinate the document transfer.");
+        }
         setCurrentStep('contact_name');
-        addBotMessage("Thank you for all that property information! Now I'll need your contact details. What's your full name?", undefined, 'text');
+        setTimeout(() => {
+          addBotMessage("Thank you for all that property information! Now I'll need your contact details. What's your full name?", undefined, 'text');
+        }, updatedData.hasFinancialRecords ? 2000 : 0);
         break;
 
       // Medical Office flow
@@ -373,8 +387,8 @@ const DealScorerPage = () => {
       case 'mo_leaseTerms':
         updatedData.leaseTerms = input;
         setDealData(updatedData);
-        setCurrentStep('contact_name');
-        addBotMessage("Perfect! Now let me get your contact information. What's your full name?", undefined, 'text');
+        setCurrentStep('financial_records');
+        addBotMessage("Do you have financial records on the tenants you would like to upload for this analysis? If not, we can do that at a later time.", ['Yes, I have records to upload', 'No, maybe later'], 'radio');
         break;
 
       // Industrial flow
@@ -391,9 +405,9 @@ const DealScorerPage = () => {
         if (!updatedData.fullBayAccess) {
           addBotMessage("Limited truck access may affect the property's industrial utility rating.", undefined, undefined, 'warning');
         }
-        setCurrentStep('contact_name');
+        setCurrentStep('financial_records');
         setTimeout(() => {
-          addBotMessage("Thanks for that information! Now, what's your full name?", undefined, 'text');
+          addBotMessage("Do you have financial records on the tenants you would like to upload for this analysis? If not, we can do that at a later time.", ['Yes, I have records to upload', 'No, maybe later'], 'radio');
         }, updatedData.fullBayAccess ? 0 : 1500);
         break;
 
@@ -409,18 +423,35 @@ const DealScorerPage = () => {
         updatedData.contact_email = input;
         setDealData(updatedData);
         setCurrentStep('contact_phone');
-        addBotMessage("And your phone number?", undefined, 'phone');
+        addBotMessage("And what's your cell phone number?", undefined, 'phone');
         break;
 
       case 'contact_phone':
         updatedData.contact_phone = input;
         setDealData(updatedData);
         
-        if (dealData.marketStatus === 'on-market') {
-          setCurrentStep('motivation');
-          addBotMessage("Almost done! Can you briefly describe your motivation to sell? (under 200 words)", undefined, 'text');
+        // Send SMS verification
+        sendSmsVerification(input);
+        setCurrentStep('sms_verification');
+        addBotMessage("I've sent a verification code to your cell phone. Please enter the 6-digit code:", undefined, 'text');
+        break;
+
+      case 'sms_verification':
+        // Verify the SMS code
+        const isValidCode = await verifySmsCode(dealData.contact_phone || '', input);
+        if (isValidCode) {
+          updatedData.phoneVerified = true;
+          setDealData(updatedData);
+          
+          if (dealData.marketStatus === 'on-market') {
+            setCurrentStep('motivation');
+            addBotMessage("Phone verified! Almost done. Can you briefly describe your motivation to sell? (under 200 words)", undefined, 'text');
+          } else {
+            submitDeal(updatedData);
+          }
         } else {
-          submitDeal(updatedData);
+          addBotMessage("That code doesn't match. Please check your phone and try again:", undefined, 'text');
+          // Stay on the same step to retry
         }
         break;
 
@@ -436,6 +467,31 @@ const DealScorerPage = () => {
         setDealData(updatedData);
         submitDeal(updatedData);
         break;
+    }
+  };
+
+  const sendSmsVerification = async (phoneNumber: string) => {
+    try {
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+      await axios.post(`${apiBaseUrl}/send-sms-verification`, {
+        phone_number: phoneNumber
+      });
+    } catch (error) {
+      console.error('Error sending SMS verification:', error);
+    }
+  };
+
+  const verifySmsCode = async (phoneNumber: string, code: string): Promise<boolean> => {
+    try {
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+      const response = await axios.post(`${apiBaseUrl}/verify-sms-code`, {
+        phone_number: phoneNumber,
+        code: code
+      });
+      return response.data.valid;
+    } catch (error) {
+      console.error('Error verifying SMS code:', error);
+      return false;
     }
   };
 
