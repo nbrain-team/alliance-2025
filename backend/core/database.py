@@ -94,6 +94,65 @@ class DealSubmission(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
+class Contact(Base):
+    __tablename__ = 'contacts'
+    
+    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String, nullable=False)
+    email = Column(String, index=True, nullable=False)
+    phone = Column(String, nullable=True)
+    office_address = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Relationship to opportunities
+    opportunities = relationship("Opportunity", back_populates="contact")
+
+
+class Opportunity(Base):
+    __tablename__ = 'opportunities'
+    
+    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    deal_status = Column(String, nullable=False, default="Cold Lead")  # Cold Lead, Intro, Warm Lead, Discovery, Proposal, Negotiation, Closed Won, Closed Lost
+    company = Column(String, nullable=False)
+    property_address = Column(String, nullable=True)
+    property_type = Column(String, nullable=True)
+    lead_source = Column(String, nullable=False)  # Email Mkt, LinkedIn, Network, etc.
+    lead_date = Column(DateTime(timezone=True), server_default=func.now())
+    last_activity = Column(DateTime(timezone=True), server_default=func.now())
+    notes = Column(String, nullable=True)
+    deal_value = Column(Integer, nullable=True)  # Estimated deal value in cents
+    
+    # Foreign keys
+    contact_id = Column(String, ForeignKey('contacts.id'), nullable=False)
+    deal_submission_id = Column(String, ForeignKey('deal_submissions.id'), nullable=True)
+    assigned_to = Column(String, ForeignKey('users.id'), nullable=True)
+    
+    # Relationships
+    contact = relationship("Contact", back_populates="opportunities")
+    deal_submission = relationship("DealSubmission")
+    assigned_user = relationship("User")
+    activities = relationship("Activity", back_populates="opportunity", cascade="all, delete-orphan")
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class Activity(Base):
+    __tablename__ = 'activities'
+    
+    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    opportunity_id = Column(String, ForeignKey('opportunities.id'), nullable=False)
+    activity_type = Column(String, nullable=False)  # email, call, meeting, note
+    description = Column(String, nullable=False)
+    created_by = Column(String, ForeignKey('users.id'), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationships
+    opportunity = relationship("Opportunity", back_populates="activities")
+    user = relationship("User")
+
+
 def get_db():
     """Dependency to get a DB session."""
     db = SessionLocal()

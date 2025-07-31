@@ -68,6 +68,9 @@ export const Sidebar = ({ onNewChat }: { onNewChat: () => void }) => {
                 <button className="sidebar-icon" title="Score My Deal" onClick={() => navigate('/score-my-deal')}>
                     <img src="/new-icons/5.png" alt="Score My Deal" />
                 </button>
+                <button className="sidebar-icon" title="CRM" onClick={() => navigate('/crm')}>
+                    <img src="/new-icons/6.png" alt="CRM" />
+                </button>
             </Flex>
         </Flex>
     );

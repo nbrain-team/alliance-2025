@@ -18,12 +18,13 @@ from datetime import datetime
 from fastapi.concurrency import run_in_threadpool
 
 from core import pinecone_manager, llm_handler, processor, auth, generator_handler
-from core.database import Base, get_db, engine, User, ChatSession, SessionLocal, Feedback, AgentIdea, DealSubmission
+from core.database import Base, get_db, engine, User, ChatSession, SessionLocal, Feedback, AgentIdea, DealSubmission, Contact, Opportunity, Activity
 from core.agent_ideator_endpoints import setup_agent_ideator_endpoints
 from core.ideator_handler import process_ideation_message, process_edit_message
 from core import deal_scorer
 from core import loopnet_scraper
 from core import sms_verification
+from core import crm_endpoints
 
 load_dotenv()
 
@@ -237,6 +238,7 @@ setup_agent_ideator_endpoints(
     process_ideation_message=process_ideation_message,
     process_edit_message=process_edit_message
 )
+app.include_router(crm_endpoints.router, prefix="/api/crm", tags=["crm"])
 
 @app.post("/scrape-loopnet", response_model=LoopNetScrapeResponse)
 async def scrape_loopnet(req: LoopNetScrapeRequest):
@@ -351,8 +353,61 @@ async def score_deal(req: DealSubmissionRequest, db: Session = Depends(get_db)):
         )
         db.add(new_submission)
         db.commit()
+        
+        # 5. Create or update contact in CRM
+        existing_contact = db.query(Contact).filter(Contact.email == req.contact_email).first()
+        if not existing_contact:
+            new_contact = Contact(
+                name=req.contact_name,
+                email=req.contact_email,
+                phone=req.contact_phone,
+                office_address=req.contact_office_address
+            )
+            db.add(new_contact)
+            db.commit()
+            db.refresh(new_contact)
+            contact = new_contact
+        else:
+            # Update existing contact info if provided
+            if req.contact_phone and not existing_contact.phone:
+                existing_contact.phone = req.contact_phone
+            if req.contact_office_address and not existing_contact.office_address:
+                existing_contact.office_address = req.contact_office_address
+            db.commit()
+            contact = existing_contact
+        
+        # 6. Create opportunity in CRM
+        # Determine initial deal status based on score
+        initial_status = "Warm Lead" if score_result["score"] == "Green" else "Cold Lead"
+        
+        # Determine lead source from additional data
+        lead_source = "Score My Deal"
+        if additional_data_dict and additional_data_dict.get("listingUrl"):
+            lead_source = "LoopNet"
+        
+        new_opportunity = Opportunity(
+            deal_status=initial_status,
+            company=req.contact_name,  # Using contact name as company for now
+            property_address=req.property_address,
+            property_type=req.property_type,
+            lead_source=lead_source,
+            contact_id=contact.id,
+            deal_submission_id=new_submission.id,
+            notes=f"Score: {score_result['score']} - Auto-generated from Score My Deal submission"
+        )
+        db.add(new_opportunity)
+        db.commit()
+        
+        # 7. Create initial activity
+        initial_activity = Activity(
+            opportunity_id=new_opportunity.id,
+            activity_type="note",
+            description=f"Deal submitted via Score My Deal. Initial score: {score_result['score']}"
+        )
+        db.add(initial_activity)
+        db.commit()
 
-        # 5. Return the score and the HTML response to the frontend
+        # 8. Return the score and the HTML response to the frontend
         return DealSubmissionResponse(
             score=score_result["score"],
             html_response=html_response
