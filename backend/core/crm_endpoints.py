@@ -7,7 +7,7 @@ from pydantic import BaseModel, EmailStr
 import uuid
 
 from .database import get_db, Opportunity, Contact, Activity, User
-from .auth import get_current_user
+from .auth import get_current_active_user
 
 router = APIRouter()
 
@@ -77,7 +77,7 @@ async def get_opportunities(
     search: Optional[str] = None,
     limit: int = Query(default=100, le=500),
     offset: int = 0,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Get all opportunities with optional filtering."""
@@ -107,7 +107,7 @@ async def get_opportunities(
 @router.get("/opportunities/{opportunity_id}", response_model=OpportunityResponse)
 async def get_opportunity(
     opportunity_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Get a specific opportunity by ID."""
@@ -124,7 +124,7 @@ async def get_opportunity(
 @router.post("/opportunities", response_model=OpportunityResponse)
 async def create_opportunity(
     opportunity: OpportunityCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Create a new opportunity."""
@@ -156,7 +156,7 @@ async def create_opportunity(
 async def update_opportunity(
     opportunity_id: str,
     update: OpportunityUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Update an opportunity."""
@@ -192,7 +192,7 @@ async def update_opportunity(
 @router.delete("/opportunities/{opportunity_id}")
 async def delete_opportunity(
     opportunity_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Delete an opportunity."""
@@ -209,7 +209,7 @@ async def delete_opportunity(
 async def create_activity(
     opportunity_id: str,
     activity: ActivityCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Add an activity to an opportunity."""
@@ -238,7 +238,7 @@ async def get_contacts(
     search: Optional[str] = None,
     limit: int = Query(default=100, le=500),
     offset: int = 0,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Get all contacts with optional search."""
@@ -260,7 +260,7 @@ async def get_contacts(
 @router.post("/contacts", response_model=ContactResponse)
 async def create_contact(
     contact: ContactBase,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Create a new contact."""
