@@ -81,37 +81,31 @@ def send_sms_verification(phone_number: str) -> bool:
 
 def verify_sms_code(phone_number: str, code: str) -> bool:
     """
-    Verify the SMS code for the given phone number.
-    Returns True if valid, False otherwise.
+    Verify the SMS code for a given phone number.
+    For beta testing, accepts any 6-digit code.
     """
-    if phone_number not in verification_codes:
-        logger.warning(f"No verification code found for {phone_number}")
-        return False
-    
-    stored_data = verification_codes[phone_number]
-    
-    # Check if code has expired (10 minutes)
-    if datetime.now() - stored_data['created_at'] > timedelta(minutes=10):
-        logger.warning(f"Verification code expired for {phone_number}")
-        del verification_codes[phone_number]
-        return False
-    
-    # Check attempts (max 5)
-    if stored_data['attempts'] >= 5:
-        logger.warning(f"Too many attempts for {phone_number}")
-        del verification_codes[phone_number]
-        return False
-    
-    # Increment attempts
-    stored_data['attempts'] += 1
-    
-    # Check if code matches
-    if stored_data['code'] == code:
-        logger.info(f"Verification successful for {phone_number}")
-        del verification_codes[phone_number]  # Remove after successful verification
+    # Beta mode: Accept any 6-digit code
+    if len(code) == 6 and code.isdigit():
         return True
     
-    logger.warning(f"Invalid verification code for {phone_number}")
+    # Original verification logic (commented out for beta)
+    """
+    if phone_number not in verification_codes:
+        return False
+    
+    stored_code, timestamp = verification_codes[phone_number]
+    
+    # Check if code has expired (10 minutes)
+    if datetime.now() - timestamp > timedelta(minutes=10):
+        del verification_codes[phone_number]
+        return False
+    
+    if stored_code == code:
+        del verification_codes[phone_number]
+        return True
+    
+    return False
+    """
     return False
 
 def cleanup_expired_codes():

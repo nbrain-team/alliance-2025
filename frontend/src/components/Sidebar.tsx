@@ -31,7 +31,6 @@ export const Sidebar = ({ onNewChat }: { onNewChat: () => void }) => {
         <Flex 
             direction="column" 
             align="center" 
-            gap="4"
             style={{ 
                 width: 'var(--sidebar-width)', 
                 height: '100vh', 
@@ -42,14 +41,16 @@ export const Sidebar = ({ onNewChat }: { onNewChat: () => void }) => {
                 position: 'fixed',
                 left: 0,
                 top: 0,
-                zIndex: 100
+                zIndex: 100,
+                overflowY: 'auto',
+                overflowX: 'hidden'
             }}
         >
-            <button className="sidebar-icon" title="Home" onClick={() => navigate('/home')} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
-                <img src="/new-icons/1.png" alt="Alliance Logo" style={{ width: '60px', height: '60px', marginBottom: '1rem' }} />
+            <button className="sidebar-icon" title="Home" onClick={() => navigate('/home')} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', marginBottom: '2rem' }}>
+                <img src="/new-icons/1.png" alt="Alliance Logo" style={{ width: '60px', height: '60px' }} />
             </button>
             
-            <Flex direction="column" align="center" gap="8" style={{ marginTop: '125px' }}>
+            <Flex direction="column" align="center" gap="3" style={{ flex: 1 }}>
                 <button className="sidebar-icon" title="New Chat" onClick={handleNewChatClick}>
                     <img src="/new-icons/13.png" alt="New Chat" />
                 </button>
