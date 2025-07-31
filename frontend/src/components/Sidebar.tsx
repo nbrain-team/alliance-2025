@@ -70,7 +70,7 @@ export const Sidebar = ({ onNewChat }: { onNewChat: () => void }) => {
                     <img src="/new-icons/5.png" alt="Score My Deal" />
                 </button>
                 <button className="sidebar-icon" title="CRM" onClick={() => navigate('/crm')}>
-                    <img src="/new-icons/6.png" alt="CRM" />
+                    <img src="/new-icons/14.webp" alt="CRM" />
                 </button>
             </Flex>
         </Flex>

@@ -350,6 +350,12 @@ YELLOW_TEMPLATE = Template(YELLOW_TEMPLATE_SOURCE)
 GREEN_TEMPLATE = Template(GREEN_TEMPLATE_SOURCE)
 
 
+def get_block_content(template_source):
+    """Extract block content from template source - for compatibility"""
+    # Since we're now using complete HTML templates, just return the source
+    return template_source
+
+
 def generate_response_letter(score_result: dict, deal_data: dict) -> str:
     """Generate the HTML response letter based on the score."""
     score = score_result.get("score", "Red")
