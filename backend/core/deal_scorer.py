@@ -232,181 +232,179 @@ BASE_TEMPLATE = """
 </html>
 """
 
-RED_TEMPLATE = Template("""
-{% extends "BASE_TEMPLATE" %}
-{% block body %}
-<p>
-  Thank you for giving Alliance the opportunity to review your property through our Offer Engine.
-  After a careful assessment of the information provided, this opportunity received a
-  <span class="highlight">Red classification</span> under our current acquisition criteria.
-</p>
-<p>
-  We make every effort to provide transparent feedback. In this case, the primary factor(s)
-  influencing the decision were:
-</p>
-<ul>
-  <li>{{ REJECTION_REASON_1 }}</li>
-  {% if REJECTION_REASON_2 %}<li>{{ REJECTION_REASON_2 }}</li>{% endif %}
-</ul>
-<p>
-  While we are not in a position to extend an offer at this time, we value your interest
-  in partnering with Alliance. Market dynamics evolve quickly, and we routinely update our
-  criteria. We therefore <strong>encourage you to submit future opportunities</strong>—especially
-  those that meet the guidelines outlined on our website.
-</p>
-<p>
-  If you would like a more detailed discussion about what we're targeting, please feel free
-  to schedule a brief call with our acquisitions team.
-</p>
-<p>
-  Again, thank you for thinking of Alliance. We appreciate the chance to review your property
-  and look forward to collaborating on other deals.
-</p>
-{% endblock %}
-""")
+# Email templates
+RED_TEMPLATE_SOURCE = """
+<html>
+<body style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px;">
+    <h2 style="color: #d32f2f;">Thank You for Your Submission</h2>
+    
+    <p>Dear {{ contact_name }},</p>
+    
+    <p>Thank you for submitting your property at <strong>{{ property_address }}</strong> for our consideration.</p>
+    
+    <p>After careful evaluation against our current investment criteria, we regret to inform you that this property does not meet our requirements at this time. Specifically:</p>
+    
+    <ul>
+        <li>{{ REJECTION_REASON_1 }}</li>
+        {% if REJECTION_REASON_2 %}<li>{{ REJECTION_REASON_2 }}</li>{% endif %}
+    </ul>
+    
+    <p>We appreciate your interest in working with Alliance and encourage you to submit other properties that may better align with our investment parameters.</p>
+    
+    <p>If you have any questions or would like to discuss our criteria in more detail, please don't hesitate to reach out.</p>
+    
+    <p>Best regards,<br>
+    The Alliance Team</p>
+    
+    <div style="margin-top: 30px; padding: 20px; background-color: #f5f5f5; border-radius: 5px;">
+        <p style="margin: 0; font-size: 14px; color: #666;">
+            <strong>Property Details:</strong><br>
+            Address: {{ property_address }}<br>
+            Type: {{ property_type }}<br>
+            Submitted: {{ submission_date }}
+        </p>
+    </div>
+</body>
+</html>
+"""
 
-YELLOW_TEMPLATE = Template("""
-{% extends "BASE_TEMPLATE" %}
-{% block body %}
-<p>
-  Thank you for submitting your property for evaluation through the Alliance Offer Engine.
-  Based on our automated review and proprietary scoring methodology, we are pleased to
-  present you with a <span class="highlight">Yellow classification</span>.
-</p>
-<p>
-  We are interested in this opportunity and are prepared to move forward contingent upon
-  the following:
-</p>
-<ul>
-  <li>Updated rent roll and trailing 12-month financials</li>
-  <li>Verification of traffic and zoning alignment with use</li>
-  <li>Interior and exterior inspection within 14 business days</li>
-  {% if CONTINGENCY_1 %}<li>{{ CONTINGENCY_1 }}</li>{% endif %}
-</ul>
-{% if METRICS_TABLE %}
-<p>Key metrics evaluated:</p>
-<table class="metrics-table">
-  <tr><th>Metric</th><th>Value</th><th>Target</th></tr>
-  {{ METRICS_TABLE }}
-</table>
-{% endif %}
-<p>
-  Please find a preliminary Letter of Intent (LOI) to follow separately for your consideration.
-  We welcome the opportunity to move forward pending the above conditions.
-</p>
-{% endblock %}
-""")
+YELLOW_TEMPLATE_SOURCE = """
+<html>
+<body style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px;">
+    <h2 style="color: #f57c00;">Conditional Interest in Your Property</h2>
+    
+    <p>Dear {{ contact_name }},</p>
+    
+    <p>Thank you for submitting your property at <strong>{{ property_address }}</strong> for our consideration.</p>
+    
+    <p>After reviewing the information provided, we have <strong>conditional interest</strong> in this property. While it shows potential, there are some aspects that require further clarification or improvement:</p>
+    
+    <ul>
+        {% if CONTINGENCY_1 %}<li>{{ CONTINGENCY_1 }}</li>{% endif %}
+        {% if CONTINGENCY_2 %}<li>{{ CONTINGENCY_2 }}</li>{% endif %}
+        {% if CONTINGENCY_3 %}<li>{{ CONTINGENCY_3 }}</li>{% endif %}
+    </ul>
+    
+    <p>We would like to schedule a call to discuss these items in more detail and explore potential solutions. Our team will reach out within the next 48 hours to arrange a convenient time.</p>
+    
+    <p>We look forward to working with you to potentially move this opportunity forward.</p>
+    
+    <p>Best regards,<br>
+    The Alliance Team</p>
+    
+    <div style="margin-top: 30px; padding: 20px; background-color: #fff3cd; border-radius: 5px;">
+        <p style="margin: 0; font-size: 14px; color: #856404;">
+            <strong>Next Steps:</strong><br>
+            1. Our team will contact you within 48 hours<br>
+            2. We'll discuss the contingencies and potential solutions<br>
+            3. If resolved, we'll proceed with a formal offer
+        </p>
+    </div>
+</body>
+</html>
+"""
 
-GREEN_TEMPLATE = Template("""
-{% extends "BASE_TEMPLATE" %}
-{% block body %}
-<p>
-  Congratulations! Your property has received a <span class="highlight">Green classification</span>
-  through our proprietary scoring system. This indicates strong alignment with Alliance's
-  acquisition criteria.
-</p>
-<p>
-  Based on the information provided, we are prepared to submit an official offer
-  {% if OFFER_AMOUNT %}of <strong>{{ OFFER_AMOUNT }}</strong>{% endif %}.
-  {% if OFF_MARKET_BONUS %}As this is an off-market opportunity, we've included a premium
-  in our offer to reflect the exclusive nature of this deal.{% endif %}
-</p>
-{% if METRICS_TABLE %}
-<p>Your property excelled in the following areas:</p>
-<table class="metrics-table">
-  <tr><th>Metric</th><th>Your Property</th><th>Our Target</th></tr>
-  {{ METRICS_TABLE }}
-</table>
-{% endif %}
-<p>
-  Please expect to receive our formal Letter of Intent (LOI) within 24 hours. We look
-  forward to entering the due diligence phase upon your acceptance.
-</p>
-<p>
-  Thank you for choosing Alliance as your partner in this transaction.
-</p>
-{% endblock %}
-""")
+GREEN_TEMPLATE_SOURCE = """
+<html>
+<body style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px;">
+    <h2 style="color: #388e3c;">Strong Interest in Your Property!</h2>
+    
+    <p>Dear {{ contact_name }},</p>
+    
+    <p>Great news! After reviewing your submission for <strong>{{ property_address }}</strong>, we are very interested in moving forward with this opportunity.</p>
+    
+    <p>Your property aligns well with our investment criteria, particularly:</p>
+    <ul>
+        <li>{{ STRENGTH_1 }}</li>
+        {% if STRENGTH_2 %}<li>{{ STRENGTH_2 }}</li>{% endif %}
+        {% if STRENGTH_3 %}<li>{{ STRENGTH_3 }}</li>{% endif %}
+    </ul>
+    
+    <p><strong>Next Steps:</strong></p>
+    <ol>
+        <li>Our acquisitions team will contact you within 24 hours</li>
+        <li>We'll schedule a property tour and detailed discussion</li>
+        <li>Upon satisfactory due diligence, we'll present a formal offer</li>
+    </ol>
+    
+    <p>We're excited about the potential of working together on this transaction and look forward to speaking with you soon.</p>
+    
+    <p>Best regards,<br>
+    The Alliance Team</p>
+    
+    <div style="margin-top: 30px; padding: 20px; background-color: #c8e6c9; border-radius: 5px;">
+        <p style="margin: 0; font-size: 14px; color: #1b5e20;">
+            <strong>Timeline:</strong><br>
+            • Initial contact: Within 24 hours<br>
+            • Property tour: Within 5-7 days<br>
+            • Offer presentation: Within 10-14 days
+        </p>
+    </div>
+</body>
+</html>
+"""
+
+# Create Template objects
+RED_TEMPLATE = Template(RED_TEMPLATE_SOURCE)
+YELLOW_TEMPLATE = Template(YELLOW_TEMPLATE_SOURCE)
+GREEN_TEMPLATE = Template(GREEN_TEMPLATE_SOURCE)
 
 
 def generate_response_letter(score_result: dict, deal_data: dict) -> str:
-    """
-    Enhanced letter generation with dynamic content based on collected data
-    """
-    score = score_result["score"]
-    additional_data = score_result.get("additional_data", {})
+    """Generate the HTML response letter based on the score."""
+    score = score_result.get("score", "Red")
     metrics = score_result.get("metrics", {})
     
-    # Build context
+    # Common context
     context = {
-        **deal_data,
-        "LOGO_URL": LOGO_URL,
-        "CURRENT_DATE": datetime.now().strftime("%B %d, %Y"),
-        "property_type": additional_data.get("propertyType", deal_data.get("property_type", "Commercial"))
+        "contact_name": deal_data.get("contact_name", "Valued Client"),
+        "property_address": deal_data.get("property_address", "Your Property"),
+        "property_type": deal_data.get("property_type", "Property"),
+        "submission_date": datetime.now().strftime("%B %d, %Y")
     }
     
-    # Extract block content helper
-    def get_block_content(template_source):
-        start_tag = '{% block body %}'
-        end_tag = '{% endblock %}'
-        start_idx = template_source.find(start_tag)
-        if start_idx == -1: return template_source
-        start_idx += len(start_tag)
-        end_idx = template_source.find(end_tag, start_idx)
-        if end_idx == -1: return template_source
-        return template_source[start_idx:end_idx].strip()
-    
-    # Select template and add specific context
     if score == 'Red':
         # Parse rejection reasons from details
         reasons = score_result.get("details", "").split(", ")
         context["REJECTION_REASON_1"] = reasons[0] if reasons else "Property metrics below investment threshold"
         context["REJECTION_REASON_2"] = reasons[1] if len(reasons) > 1 else ""
-        block_content_source = get_block_content(RED_TEMPLATE.source)
+        block_content_source = get_block_content(RED_TEMPLATE_SOURCE)
         
     elif score == 'Yellow':
         # Add specific contingencies based on yellow flags
         context["CONTINGENCY_1"] = ""
         if metrics.get('vacancyRate', 0) > 15:
-            context["CONTINGENCY_1"] = "Vacancy reduction plan to achieve 90%+ occupancy"
+            context["CONTINGENCY_1"] = "High vacancy rate requires stabilization plan"
+        elif metrics.get('rentToMarketRatio', 100) < 90:
+            context["CONTINGENCY_1"] = "Below-market rents need adjustment strategy"
         
-        # Create metrics table for transparency
-        metrics_rows = []
-        if 'capRate' in metrics:
-            metrics_rows.append(f"<tr><td>Cap Rate</td><td>{metrics['capRate']}%</td><td>≥6.0%</td></tr>")
-        if 'occupancyRate' in metrics:
-            metrics_rows.append(f"<tr><td>Occupancy</td><td>{metrics['occupancyRate']}%</td><td>≥90%</td></tr>")
-        context["METRICS_TABLE"] = "\n".join(metrics_rows)
+        context["CONTINGENCY_2"] = ""
+        if metrics.get('expenseRatio', 0) > 45:
+            context["CONTINGENCY_2"] = "Operating expenses appear high and need review"
         
-        block_content_source = get_block_content(YELLOW_TEMPLATE.source)
+        context["CONTINGENCY_3"] = ""
+        if 'pricePerUnit' in metrics and metrics['pricePerUnit'] > 200000:
+            context["CONTINGENCY_3"] = "Price per unit requires further market justification"
+            
+        block_content_source = get_block_content(YELLOW_TEMPLATE_SOURCE)
         
     else:  # Green
-        # Calculate offer amount (placeholder logic)
-        if additional_data.get('rentRoll'):
-            annual_rent = additional_data['rentRoll'] * 12
-            offer_amount = annual_rent * 10  # Simple 10x multiplier
-            context["OFFER_AMOUNT"] = f"${offer_amount:,.0f}"
+        # Add strengths
+        context["STRENGTH_1"] = "Strong cash flow and attractive cap rate"
+        context["STRENGTH_2"] = ""
+        context["STRENGTH_3"] = ""
         
-        context["OFF_MARKET_BONUS"] = additional_data.get('marketStatus') == 'off-market'
-        
-        # Create success metrics table
-        metrics_rows = []
-        if 'capRate' in metrics and metrics['capRate'] >= 6:
-            metrics_rows.append(f"<tr><td>Cap Rate</td><td>{metrics['capRate']}%</td><td>≥6.0%</td></tr>")
-        if 'yearBuilt' in metrics and metrics['yearBuilt'] >= 2000:
-            metrics_rows.append(f"<tr><td>Year Built</td><td>{metrics['yearBuilt']}</td><td>≥2000</td></tr>")
-        context["METRICS_TABLE"] = "\n".join(metrics_rows)
-        
-        block_content_source = get_block_content(GREEN_TEMPLATE.source)
+        if metrics.get('capRate', 0) >= 7:
+            context["STRENGTH_1"] = f"Excellent cap rate of {metrics['capRate']:.1f}%"
+        if metrics.get('rentToMarketRatio', 0) >= 95:
+            context["STRENGTH_2"] = "Rents are at or near market rates"
+        if metrics.get('vacancyRate', 0) <= 5:
+            context["STRENGTH_3"] = "Low vacancy indicates stable tenant base"
+            
+        block_content_source = get_block_content(GREEN_TEMPLATE_SOURCE)
     
-    # Render the block content
+    # Render the template with context
     rendered_block = Template(block_content_source).render(context)
     
-    # Insert into base template
-    final_html = BASE_TEMPLATE.replace('{% block body %}{% endblock %}', rendered_block)
-    
-    # Final render with all context
-    final_html_rendered = Template(final_html).render(context)
-    
-    return final_html_rendered 
-    return final_html_rendered 
+    # Return just the rendered block content
+    return rendered_block 

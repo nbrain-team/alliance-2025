@@ -202,7 +202,7 @@ const CRMPage: React.FC = () => {
   return (
     <Container size="4" style={{ padding: '2rem' }}>
       <Flex justify="between" align="center" mb="4">
-        <Heading size="7">nBrain Sales Pipeline</Heading>
+        <Heading size="7">REI Deal Pipeline</Heading>
         <Button size="3" onClick={() => window.location.href = '/score-my-deal'}>
           <PlusIcon />
           New Opportunity

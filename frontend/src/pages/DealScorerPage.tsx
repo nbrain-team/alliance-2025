@@ -743,6 +743,7 @@ const DealScorerPage = () => {
                       value={userInput}
                       onChange={(e) => setUserInput(e.target.value)}
                       style={{ flex: 1 }}
+                      autoFocus
                     />
                     <Button type="submit" disabled={!userInput.trim()}>
                       <ChevronRightIcon />

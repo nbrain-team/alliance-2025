@@ -62,8 +62,6 @@ function AppRoutes() {
             </ProtectedRoute>
         } />
         
-        <Route path="/score-my-deal" element={<DealScorerPage />} />
-
         {/* All other authenticated routes get the sidebar via MainLayout */}
         <Route path="/*" element={
           isAuthenticated ? (
@@ -76,6 +74,7 @@ function AppRoutes() {
                 <Route path="/feedback" element={<ProtectedRoute><FeedbackLogPage /></ProtectedRoute>} />
                 <Route path="/agent-ideas" element={<ProtectedRoute><Agents /></ProtectedRoute>} />
                 <Route path="/crm" element={<ProtectedRoute><CRMPage /></ProtectedRoute>} />
+                <Route path="/score-my-deal" element={<DealScorerPage />} />
                 {/* Redirect any other nested path to the chat page */}
                 <Route path="*" element={<Navigate to="/" />} />
               </Routes>
