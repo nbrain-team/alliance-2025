@@ -3,6 +3,7 @@ import sys
 import csv
 import requests
 from dotenv import load_dotenv
+import argparse
 
 # Add parent directory to path to import from core
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -94,8 +95,14 @@ def import_contacts_from_csv(csv_file_path):
         db.close()
 
 if __name__ == "__main__":
-    # Use the CSV file path provided
-    csv_file_path = "/Users/dannydemichele/alliance-2025/alliance-2025/crm1.csv"
+    # Set up argument parser
+    parser = argparse.ArgumentParser(description='Import contacts from CSV to CRM')
+    parser.add_argument('csv_file', nargs='?', 
+                       default="/Users/dannydemichele/alliance-2025/alliance-2025/crm1.csv",
+                       help='Path to CSV file containing contacts')
+    
+    args = parser.parse_args()
+    csv_file_path = args.csv_file
     
     if not os.path.exists(csv_file_path):
         logger.error(f"CSV file not found: {csv_file_path}")
