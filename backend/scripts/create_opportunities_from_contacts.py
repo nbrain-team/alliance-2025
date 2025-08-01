@@ -50,7 +50,7 @@ def create_opportunities_from_contacts():
                     lead_source="Email Mkt",  # Default source since these came from email list
                     lead_date=datetime.utcnow(),
                     property_type="Multi-Family",  # Default property type
-                    deal_size=0,  # Default deal size
+                    deal_value=0,  # Default deal value (in cents)
                     notes=f"Imported from email list on {datetime.utcnow().strftime('%Y-%m-%d')}"
                 )
                 
