@@ -37,6 +37,7 @@ const EmailCampaigns: React.FC = () => {
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
   const [showNewCampaignDialog, setShowNewCampaignDialog] = useState(false);
   const [activeTab, setActiveTab] = useState('compose');
+  const [isLoading, setIsLoading] = useState(true);
   
   // Campaign creation state
   const [campaignName, setCampaignName] = useState('');
@@ -52,18 +53,29 @@ const EmailCampaigns: React.FC = () => {
   const [selectAll, setSelectAll] = useState(false);
 
   useEffect(() => {
-    fetchCampaigns();
-    fetchContacts();
-    fetchTemplates();
+    console.log('EmailCampaigns component mounted');
+    loadData();
   }, []);
+
+  const loadData = async () => {
+    setIsLoading(true);
+    await Promise.all([
+      fetchCampaigns(),
+      fetchContacts(),
+      fetchTemplates()
+    ]);
+    setIsLoading(false);
+  };
 
   const fetchCampaigns = async () => {
     try {
       const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
       const token = localStorage.getItem('token');
+      console.log('Fetching campaigns...');
       const response = await axios.get(`${apiBaseUrl}/api/crm/campaigns`, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      console.log('Campaigns response:', response.data);
       setCampaigns(response.data);
     } catch (error) {
       console.error('Error fetching campaigns:', error);
@@ -74,9 +86,11 @@ const EmailCampaigns: React.FC = () => {
     try {
       const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
       const token = localStorage.getItem('token');
-      const response = await axios.get(`${apiBaseUrl}/api/crm/contacts?limit=1000`, {
+      console.log('Fetching contacts...');
+      const response = await axios.get(`${apiBaseUrl}/api/crm/contacts?limit=500`, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      console.log('Contacts response:', response.data);
       setContacts(response.data.map((c: Contact) => ({ ...c, selected: false })));
     } catch (error) {
       console.error('Error fetching contacts:', error);
@@ -87,9 +101,11 @@ const EmailCampaigns: React.FC = () => {
     try {
       const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
       const token = localStorage.getItem('token');
+      console.log('Fetching templates...');
       const response = await axios.get(`${apiBaseUrl}/api/crm/email-templates`, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      console.log('Templates response:', response.data);
       setTemplates(response.data);
     } catch (error) {
       console.error('Error fetching templates:', error);
@@ -220,50 +236,64 @@ const EmailCampaigns: React.FC = () => {
         </Button>
       </Flex>
 
-      <Card>
-        <Table.Root>
-          <Table.Header>
-            <Table.Row>
-              <Table.ColumnHeaderCell>Campaign Name</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell>Subject</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell>Recipients</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell>Date</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell>Actions</Table.ColumnHeaderCell>
-            </Table.Row>
-          </Table.Header>
-          <Table.Body>
-            {campaigns.map(campaign => (
-              <Table.Row key={campaign.id}>
-                <Table.Cell>
-                  <Text weight="medium">{campaign.name}</Text>
-                </Table.Cell>
-                <Table.Cell>{campaign.subject}</Table.Cell>
-                <Table.Cell>
-                  <Badge color={getStatusColor(campaign.status)}>
-                    {campaign.status}
-                  </Badge>
-                </Table.Cell>
-                <Table.Cell>
-                  <Badge variant="soft">
-                    <PersonIcon />
-                    {campaign.recipients_count}
-                  </Badge>
-                </Table.Cell>
-                <Table.Cell>
-                  {campaign.sent_at 
-                    ? format(new Date(campaign.sent_at), 'MMM d, yyyy')
-                    : format(new Date(campaign.created_at), 'MMM d, yyyy')
-                  }
-                </Table.Cell>
-                <Table.Cell>
-                  <Button size="1" variant="soft">View</Button>
-                </Table.Cell>
+      {isLoading ? (
+        <Card>
+          <Text>Loading campaigns...</Text>
+        </Card>
+      ) : (
+        <Card>
+          <Table.Root>
+            <Table.Header>
+              <Table.Row>
+                <Table.ColumnHeaderCell>Campaign Name</Table.ColumnHeaderCell>
+                <Table.ColumnHeaderCell>Subject</Table.ColumnHeaderCell>
+                <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
+                <Table.ColumnHeaderCell>Recipients</Table.ColumnHeaderCell>
+                <Table.ColumnHeaderCell>Date</Table.ColumnHeaderCell>
+                <Table.ColumnHeaderCell>Actions</Table.ColumnHeaderCell>
               </Table.Row>
-            ))}
-          </Table.Body>
-        </Table.Root>
-      </Card>
+            </Table.Header>
+            <Table.Body>
+              {campaigns.length === 0 ? (
+                <Table.Row>
+                  <Table.Cell colSpan={6} style={{ textAlign: 'center' }}>
+                    <Text color="gray">No campaigns yet. Click "New Campaign" to get started!</Text>
+                  </Table.Cell>
+                </Table.Row>
+              ) : (
+                campaigns.map(campaign => (
+                  <Table.Row key={campaign.id}>
+                    <Table.Cell>
+                      <Text weight="medium">{campaign.name}</Text>
+                    </Table.Cell>
+                    <Table.Cell>{campaign.subject}</Table.Cell>
+                    <Table.Cell>
+                      <Badge color={getStatusColor(campaign.status)}>
+                        {campaign.status}
+                      </Badge>
+                    </Table.Cell>
+                    <Table.Cell>
+                      <Badge variant="soft">
+                        <PersonIcon />
+                        {campaign.recipients_count}
+                      </Badge>
+                    </Table.Cell>
+                    <Table.Cell>
+                      {campaign.sent_at 
+                        ? format(new Date(campaign.sent_at), 'MMM d, yyyy')
+                        : format(new Date(campaign.created_at), 'MMM d, yyyy')
+                      }
+                    </Table.Cell>
+                    <Table.Cell>
+                      <Button size="1" variant="soft">View</Button>
+                    </Table.Cell>
+                  </Table.Row>
+                ))
+              )}
+            </Table.Body>
+          </Table.Root>
+        </Card>
+      )}
 
       {/* New Campaign Dialog */}
       <Dialog.Root open={showNewCampaignDialog} onOpenChange={setShowNewCampaignDialog}>
