@@ -13,6 +13,34 @@ from . import pinecone_manager
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+def preprocess_query_for_synonyms(query: str) -> str:
+    """
+    Preprocesses the query to expand mortgage-related terms with their synonyms.
+    This helps find relevant information regardless of which term is used.
+    """
+    # Define mortgage-related synonyms
+    mortgage_terms = {
+        'mortgage': ['mortgage', 'loan', 'note', 'debt', 'financing'],
+        'mortgages': ['mortgages', 'loans', 'notes', 'debts', 'financing'],
+        'loan': ['mortgage', 'loan', 'note', 'debt', 'financing'],
+        'loans': ['mortgages', 'loans', 'notes', 'debts', 'financing'],
+        'note': ['mortgage', 'loan', 'note', 'debt', 'financing'],
+        'notes': ['mortgages', 'loans', 'notes', 'debts', 'financing'],
+    }
+    
+    # Check if query contains any mortgage-related terms
+    query_lower = query.lower()
+    expanded_query = query
+    
+    for term, synonyms in mortgage_terms.items():
+        if term in query_lower:
+            # Add a note about synonyms to help the search
+            synonym_str = ' OR '.join(synonyms)
+            expanded_query = f"{query} (including {synonym_str})"
+            break
+    
+    return expanded_query
+
 # Query classification prompt
 QUERY_CLASSIFIER_PROMPT = """
 You are a query classification agent. Analyze the user's question and classify it as either:
@@ -48,14 +76,18 @@ You are a property information assistant. Your task is to find and provide a DIR
 **Instructions:**
 1. Find the EXACT answer to the question in the provided information
 2. Respond with ONLY the specific fact requested - no explanations, no analysis, no additional context
-3. If the answer has multiple parts (like multiple dates or fees), list them clearly
-4. If the information is not found, say only: "Information not found in the documents"
-5. Include the source document name in parentheses at the end
+3. If you cannot find the exact answer, say "Information not found in documents"
+4. For dates: provide just the date
+5. For amounts: provide just the number/amount
+6. For names: provide just the name
+7. For yes/no questions: answer just "Yes" or "No"
 
-Examples of good responses:
-- "The lease expires on 8/31/2037 (Commercial Lease Extract.pdf)"
-- "Monthly rent: $5,000 (Lease Agreement.pdf)"
-- "CAM charges: $1,200/month (Property Summary.xlsx)"
+**Important Note about Financial Terms:**
+- The terms "mortgage", "loan", "note", "debt", and "financing" often refer to the same thing (money borrowed on a property)
+- If asked about any of these terms, check for information about ALL of them
+- For example, if asked about "mortgage", also look for information about "loan" or "note"
+
+Remember: Be EXTREMELY concise. Your entire response should typically be 1-10 words.
 """
 
 # This is a condensed version of ADTV's mission, values, and FAQs.
@@ -88,25 +120,29 @@ User's Question:
 JSON Array of Sub-Questions:
 """
 
+# Synthesis prompt for complex queries
 SYNTHESIS_PROMPT_TEMPLATE = """
-You are a Senior Financial Analyst AI. Your task is to provide a comprehensive, expert-level answer to the user's original question based on the evidence gathered from a series of sub-questions.
+You are a helpful real estate investment assistant. Based on the gathered evidence below, provide a comprehensive and accurate answer to the user's question.
 
-**User's Original Question:**
-{original_query}
+**User's Original Question:** {original_query}
 
-**Evidence Gathered (from document sources):**
+**Gathered Evidence:**
 {evidence}
 
 **Instructions:**
-1.  Review all the evidence provided.
-2.  Construct a final, synthesized response that directly answers the user's original question.
-3.  **Prioritize Precision**: Your primary goal is to extract and present concrete, factual data from the evidence. When the user asks for things like fees, amounts, names, or dates, you must find and include the exact figures and text from the provided sources. Do not summarize this data away.
-4.  Do not just list the evidence; analyze it, compare and contrast findings, and identify patterns or key insights.
-5.  For every piece of information you use, you MUST cite its source document, which is provided with each piece of evidence (e.g., "[Source: document_name.pdf]").
-6.  If the evidence for a sub-question was insufficient or not found, explicitly state that in your analysis.
-7.  Ensure your final output is well-structured, clear, and meets the standards of an experienced financial professional. **Use markdown tables to present tabular data** (such as financial summaries, lists of fees, or comparisons) to enhance readability and professionalism.
+1. Synthesize the information from all sub-questions to provide a complete answer
+2. Structure your response clearly with appropriate formatting
+3. Include specific details, numbers, dates, and facts from the evidence
+4. If information is missing or unclear, acknowledge this honestly
+5. Cite sources naturally within your response when mentioning specific facts
+6. Use tables or lists where appropriate to organize information clearly
 
-**Final Synthesized Report:**
+**Important Note about Financial Terms:**
+- The terms "mortgage", "loan", "note", "debt", and "financing" are often used interchangeably in real estate
+- They all refer to money borrowed against a property
+- When discussing any of these terms, consider information about all of them as relevant
+
+Provide a thorough, well-organized response that directly addresses the user's question.
 """
 
 def get_llm():
@@ -154,10 +190,14 @@ async def handle_simple_query(
     logger.info("Handling simple query")
     llm = get_llm()
     
+    # Preprocess query for mortgage-related synonyms
+    expanded_query = preprocess_query_for_synonyms(query)
+    
     # For simple queries, search more broadly to find the specific document
     # Look for documents that might contain the answer based on common naming patterns
     search_queries = [
-        query,  # Original query
+        expanded_query,  # Expanded query with synonyms
+        query,  # Original query as fallback
         "lease terms lease agreement commercial lease extract",  # Common lease documents
         "property summary financial summary rent roll",  # Financial documents
         "property information details specifications"  # General property info
@@ -252,6 +292,9 @@ async def run_agentic_rag_pipeline(
     """
     logger.info("--- Starting Agentic RAG Pipeline ---")
     
+    # Preprocess query for mortgage-related synonyms
+    expanded_query = preprocess_query_for_synonyms(query)
+    
     # First, classify the query
     query_type = await classify_query(query)
     
@@ -263,8 +306,8 @@ async def run_agentic_rag_pipeline(
         # Handle complex queries with the full pipeline
         llm = get_llm()
         
-        # 1. Decompose the query
-        sub_questions = await decompose_query_to_sub_questions(query, llm)
+        # 1. Decompose the query (use expanded query for better decomposition)
+        sub_questions = await decompose_query_to_sub_questions(expanded_query, llm)
         
         # 2. Gather evidence for each sub-question
         evidence_list = []
@@ -272,9 +315,13 @@ async def run_agentic_rag_pipeline(
         
         for i, sub_q in enumerate(sub_questions):
             logger.info(f"Step {i+1}/{len(sub_questions)}: Retrieving context for sub-question: '{sub_q}'")
+            
+            # Also expand sub-questions for mortgage terms
+            expanded_sub_q = preprocess_query_for_synonyms(sub_q)
+            
             matches = await run_in_threadpool(
                 pinecone_manager.query_index,
-                query=sub_q,
+                query=expanded_sub_q,
                 top_k=5, # Retrieve 5 chunks per sub-question
                 properties=properties
             )
