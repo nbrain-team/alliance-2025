@@ -18,6 +18,7 @@ from datetime import datetime
 from fastapi.concurrency import run_in_threadpool
 
 from core import pinecone_manager, llm_handler, processor, auth, generator_handler
+from core.llm_handler import run_agentic_rag_pipeline
 from core.database import Base, get_db, engine, User, ChatSession, SessionLocal, Feedback, AgentIdea, DealSubmission, Contact, Opportunity, Activity
 from core.agent_ideator_endpoints import setup_agent_ideator_endpoints
 from core.ideator_handler import process_ideation_message, process_edit_message
@@ -735,7 +736,7 @@ async def chat_stream(req: ChatRequest, current_user: User = Depends(auth.get_cu
     async def stream_generator() -> AsyncGenerator[str, None]:
         try:
             # The entire agentic process is now handled by the llm_handler
-            llm_stream = llm_handler.run_rag_pipeline(
+            llm_stream = run_agentic_rag_pipeline(
                 query=req.query,
                 properties=req.properties,
                 history=req.history,
