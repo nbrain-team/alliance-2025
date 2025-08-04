@@ -14,6 +14,7 @@ import FeedbackLogPage from './pages/FeedbackLogPage';
 import Agents from './pages/Agents';
 import DealScorerPage from './pages/DealScorerPage';
 import CRMPage from './pages/CRMPage';
+import EmailCampaigns from './pages/EmailCampaigns';
 
 // Define the structure for a message
 interface Message {
@@ -74,6 +75,7 @@ function AppRoutes() {
                 <Route path="/feedback" element={<ProtectedRoute><FeedbackLogPage /></ProtectedRoute>} />
                 <Route path="/agent-ideas" element={<ProtectedRoute><Agents /></ProtectedRoute>} />
                 <Route path="/crm" element={<ProtectedRoute><CRMPage /></ProtectedRoute>} />
+                <Route path="/email-campaigns" element={<ProtectedRoute><EmailCampaigns /></ProtectedRoute>} />
                 <Route path="/score-my-deal" element={<DealScorerPage />} />
                 {/* Redirect any other nested path to the chat page */}
                 <Route path="*" element={<Navigate to="/" />} />

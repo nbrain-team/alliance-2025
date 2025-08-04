@@ -25,6 +25,7 @@ from core import deal_scorer
 from core import loopnet_scraper
 from core import sms_verification
 from core import crm_endpoints
+from core import email_campaigns
 
 load_dotenv()
 
@@ -238,7 +239,11 @@ setup_agent_ideator_endpoints(
     process_ideation_message=process_ideation_message,
     process_edit_message=process_edit_message
 )
+# Mount the CRM router
 app.include_router(crm_endpoints.router, prefix="/api/crm", tags=["crm"])
+
+# Mount the email campaigns router
+app.include_router(email_campaigns.router, prefix="/api/crm", tags=["email_campaigns"])
 
 @app.post("/scrape-loopnet", response_model=LoopNetScrapeResponse)
 async def scrape_loopnet(req: LoopNetScrapeRequest):

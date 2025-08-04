@@ -72,6 +72,9 @@ export const Sidebar = ({ onNewChat }: { onNewChat: () => void }) => {
                 <button className="sidebar-icon" title="CRM" onClick={() => navigate('/crm')}>
                     <img src="/new-icons/14.webp" alt="CRM" />
                 </button>
+                <button className="sidebar-icon" title="Email Campaigns" onClick={() => navigate('/email-campaigns')}>
+                    <img src="/new-icons/15.webp" alt="Email Campaigns" />
+                </button>
             </Flex>
         </Flex>
     );
