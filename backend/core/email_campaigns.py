@@ -11,7 +11,7 @@ import os
 
 from .database import get_db, User, Contact
 from .auth import get_current_active_user
-from .llm_handler import LLMHandler
+from .llm_handler import get_llm
 
 router = APIRouter()
 
@@ -97,7 +97,7 @@ class TemplateResponse(BaseModel):
     created_at: datetime
 
 # Initialize LLM handler
-llm_handler = LLMHandler()
+llm = get_llm()
 
 @router.post("/generate-email", response_model=EmailGenerateResponse)
 async def generate_email(
@@ -127,7 +127,7 @@ async def generate_email(
         [email content here]
         """
         
-        response = llm_handler.generate_response(full_prompt)
+        response = llm.invoke(full_prompt).content
         
         # Parse the response
         lines = response.strip().split('\n')
