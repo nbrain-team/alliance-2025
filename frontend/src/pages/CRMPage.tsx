@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Card, Box, Heading, Table, Badge, Button, Select, TextField, Flex, IconButton, Dialog, Text, Separator } from '@radix-ui/themes';
+import { Container, Card, Box, Heading, Table, Badge, Button, Select, TextField, Flex, IconButton, Dialog, Text, Separator, TextArea } from '@radix-ui/themes';
 import { MagnifyingGlassIcon, PlusIcon, TrashIcon, Pencil1Icon, ActivityLogIcon } from '@radix-ui/react-icons';
 import axios from 'axios';
 import { format } from 'date-fns';
@@ -53,6 +53,10 @@ const CRMPage: React.FC = () => {
   const [activityType, setActivityType] = useState('note');
   const [activityDescription, setActivityDescription] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Add state for editing
+  const [editedOpportunity, setEditedOpportunity] = useState<Partial<Opportunity>>({});
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     fetchOpportunities();
@@ -174,6 +178,62 @@ const CRMPage: React.FC = () => {
     }
   };
 
+  const handleEditOpportunity = () => {
+    if (selectedOpportunity) {
+      setEditedOpportunity({
+        company: selectedOpportunity.company,
+        property_address: selectedOpportunity.property_address || '',
+        notes: selectedOpportunity.notes || '',
+        contact: {
+          ...selectedOpportunity.contact,
+          name: selectedOpportunity.contact.name,
+          email: selectedOpportunity.contact.email,
+          phone: selectedOpportunity.contact.phone || ''
+        }
+      });
+      setIsEditing(true);
+    }
+  };
+
+  const saveOpportunityChanges = async () => {
+    if (!selectedOpportunity || !editedOpportunity) return;
+    
+    try {
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+      const token = localStorage.getItem('token');
+      
+      // Update opportunity
+      await axios.put(
+        `${apiBaseUrl}/api/crm/opportunities/${selectedOpportunity.id}`,
+        {
+          company: editedOpportunity.company,
+          property_address: editedOpportunity.property_address,
+          notes: editedOpportunity.notes
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      // Update contact if changed
+      if (editedOpportunity.contact) {
+        await axios.put(
+          `${apiBaseUrl}/api/crm/contacts/${selectedOpportunity.contact.id}`,
+          {
+            name: editedOpportunity.contact.name,
+            email: editedOpportunity.contact.email,
+            phone: editedOpportunity.contact.phone
+          },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      }
+      
+      setIsEditing(false);
+      setShowDetailDialog(false);
+      fetchOpportunities(); // Refresh data
+    } catch (error) {
+      console.error('Error updating opportunity:', error);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Cold Lead': return 'blue';
@@ -200,7 +260,7 @@ const CRMPage: React.FC = () => {
   };
 
   return (
-    <Container size="4" style={{ padding: '2rem' }}>
+    <Container size="4" style={{ padding: '2rem', height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <Flex justify="between" align="center" mb="4">
         <Heading size="7">REI Deal Pipeline</Heading>
         <Button size="3" onClick={() => window.location.href = '/score-my-deal'}>
@@ -241,96 +301,99 @@ const CRMPage: React.FC = () => {
         </Box>
       </Card>
 
-      <Card>
-        <Table.Root>
-          <Table.Header>
-            <Table.Row>
-              <Table.ColumnHeaderCell>Deal Status</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell>Company</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell>Contact</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell>Lead Source</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell>Lead Date</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell>Actions</Table.ColumnHeaderCell>
-            </Table.Row>
-          </Table.Header>
-          <Table.Body>
-            {filteredOpportunities.map((opportunity) => (
-              <Table.Row key={opportunity.id}>
-                <Table.Cell>
-                  <Select.Root 
-                    value={opportunity.deal_status} 
-                    onValueChange={(value) => updateOpportunityStatus(opportunity.id, value)}
-                  >
-                    <Select.Trigger variant="ghost">
-                      <Badge color={getStatusColor(opportunity.deal_status)}>
-                        {opportunity.deal_status}
-                      </Badge>
-                    </Select.Trigger>
-                    <Select.Content>
-                      {dealStatuses.map(status => (
-                        <Select.Item key={status} value={status}>{status}</Select.Item>
-                      ))}
-                    </Select.Content>
-                  </Select.Root>
-                </Table.Cell>
-                <Table.Cell>
-                  <Text weight="medium">{opportunity.company}</Text>
-                  {opportunity.property_address && (
-                    <Text size="1" color="gray" style={{ display: 'block' }}>
-                      {opportunity.property_address}
-                    </Text>
-                  )}
-                </Table.Cell>
-                <Table.Cell>
-                  <Text>{opportunity.contact.name}</Text>
-                  <Text size="1" color="gray" style={{ display: 'block' }}>
-                    {opportunity.contact.email}
-                  </Text>
-                </Table.Cell>
-                <Table.Cell>
-                  <Badge color={getSourceColor(opportunity.lead_source)}>
-                    {opportunity.lead_source}
-                  </Badge>
-                </Table.Cell>
-                <Table.Cell>
-                  {format(new Date(opportunity.lead_date), 'MM/dd/yy')}
-                </Table.Cell>
-                <Table.Cell>
-                  <Flex gap="2">
-                    <IconButton 
-                      size="1" 
-                      variant="ghost"
-                      onClick={() => {
-                        setSelectedOpportunity(opportunity);
-                        setShowDetailDialog(true);
-                      }}
-                    >
-                      <Pencil1Icon />
-                    </IconButton>
-                    <IconButton 
-                      size="1" 
-                      variant="ghost"
-                      onClick={() => {
-                        setSelectedOpportunity(opportunity);
-                        setShowActivityDialog(true);
-                      }}
-                    >
-                      <ActivityLogIcon />
-                    </IconButton>
-                    <IconButton 
-                      size="1" 
-                      variant="ghost" 
-                      color="red"
-                      onClick={() => deleteOpportunity(opportunity.id)}
-                    >
-                      <TrashIcon />
-                    </IconButton>
-                  </Flex>
-                </Table.Cell>
+      <Card style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <Box style={{ overflow: 'auto', flex: 1 }}>
+          <Table.Root>
+            <Table.Header style={{ position: 'sticky', top: 0, backgroundColor: 'var(--color-background)', zIndex: 1 }}>
+              <Table.Row>
+                <Table.ColumnHeaderCell>Deal Status</Table.ColumnHeaderCell>
+                <Table.ColumnHeaderCell>Company</Table.ColumnHeaderCell>
+                <Table.ColumnHeaderCell>Contact</Table.ColumnHeaderCell>
+                <Table.ColumnHeaderCell>Lead Source</Table.ColumnHeaderCell>
+                <Table.ColumnHeaderCell>Lead Date</Table.ColumnHeaderCell>
+                <Table.ColumnHeaderCell>Actions</Table.ColumnHeaderCell>
               </Table.Row>
-            ))}
-          </Table.Body>
-        </Table.Root>
+            </Table.Header>
+            <Table.Body>
+              {filteredOpportunities.map((opportunity) => (
+                <Table.Row key={opportunity.id}>
+                  <Table.Cell>
+                    <Select.Root 
+                      value={opportunity.deal_status} 
+                      onValueChange={(value) => updateOpportunityStatus(opportunity.id, value)}
+                    >
+                      <Select.Trigger variant="ghost">
+                        <Badge color={getStatusColor(opportunity.deal_status)}>
+                          {opportunity.deal_status}
+                        </Badge>
+                      </Select.Trigger>
+                      <Select.Content>
+                        {dealStatuses.map(status => (
+                          <Select.Item key={status} value={status}>{status}</Select.Item>
+                        ))}
+                      </Select.Content>
+                    </Select.Root>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Text weight="medium">{opportunity.company}</Text>
+                    {opportunity.property_address && (
+                      <Text size="1" color="gray" style={{ display: 'block' }}>
+                        {opportunity.property_address}
+                      </Text>
+                    )}
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Text>{opportunity.contact.name}</Text>
+                    <Text size="1" color="gray" style={{ display: 'block' }}>
+                      {opportunity.contact.email}
+                    </Text>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Badge color={getSourceColor(opportunity.lead_source)}>
+                      {opportunity.lead_source}
+                    </Badge>
+                  </Table.Cell>
+                  <Table.Cell>
+                    {format(new Date(opportunity.lead_date), 'MM/dd/yy')}
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Flex gap="2">
+                      <IconButton 
+                        size="1" 
+                        variant="ghost"
+                        onClick={() => {
+                          setSelectedOpportunity(opportunity);
+                          setShowDetailDialog(true);
+                          setIsEditing(false);
+                        }}
+                      >
+                        <Pencil1Icon />
+                      </IconButton>
+                      <IconButton 
+                        size="1" 
+                        variant="ghost"
+                        onClick={() => {
+                          setSelectedOpportunity(opportunity);
+                          setShowActivityDialog(true);
+                        }}
+                      >
+                        <ActivityLogIcon />
+                      </IconButton>
+                      <IconButton 
+                        size="1" 
+                        variant="ghost" 
+                        color="red"
+                        onClick={() => deleteOpportunity(opportunity.id)}
+                      >
+                        <TrashIcon />
+                      </IconButton>
+                    </Flex>
+                  </Table.Cell>
+                </Table.Row>
+              ))}
+            </Table.Body>
+          </Table.Root>
+        </Box>
       </Card>
 
       {/* Opportunity Detail Dialog */}
@@ -340,39 +403,121 @@ const CRMPage: React.FC = () => {
           {selectedOpportunity && (
             <Box>
               <Flex direction="column" gap="3">
-                <Box>
-                  <Text size="2" color="gray">Company</Text>
-                  <Text size="3" weight="medium">{selectedOpportunity.company}</Text>
-                </Box>
-                
-                <Box>
-                  <Text size="2" color="gray">Status</Text>
-                  <Badge color={getStatusColor(selectedOpportunity.deal_status)}>
-                    {selectedOpportunity.deal_status}
-                  </Badge>
-                </Box>
+                {!isEditing ? (
+                  <>
+                    <Box>
+                      <Text size="2" color="gray">Company</Text>
+                      <Text size="3" weight="medium">{selectedOpportunity.company}</Text>
+                    </Box>
+                    
+                    <Box>
+                      <Text size="2" color="gray">Status</Text>
+                      <Badge color={getStatusColor(selectedOpportunity.deal_status)}>
+                        {selectedOpportunity.deal_status}
+                      </Badge>
+                    </Box>
 
-                {selectedOpportunity.property_address && (
-                  <Box>
-                    <Text size="2" color="gray">Property Address</Text>
-                    <Text size="3">{selectedOpportunity.property_address}</Text>
-                  </Box>
-                )}
+                    {selectedOpportunity.property_address && (
+                      <Box>
+                        <Text size="2" color="gray">Property Address</Text>
+                        <Text size="3">{selectedOpportunity.property_address}</Text>
+                      </Box>
+                    )}
 
-                <Box>
-                  <Text size="2" color="gray">Contact</Text>
-                  <Text size="3">{selectedOpportunity.contact.name}</Text>
-                  <Text size="2" color="gray">{selectedOpportunity.contact.email}</Text>
-                  {selectedOpportunity.contact.phone && (
-                    <Text size="2" color="gray">{selectedOpportunity.contact.phone}</Text>
-                  )}
-                </Box>
+                    <Box>
+                      <Text size="2" color="gray">Contact</Text>
+                      <Text size="3">{selectedOpportunity.contact.name}</Text>
+                      <Text size="2" color="gray">{selectedOpportunity.contact.email}</Text>
+                      {selectedOpportunity.contact.phone && (
+                        <Text size="2" color="gray">{selectedOpportunity.contact.phone}</Text>
+                      )}
+                    </Box>
 
-                {selectedOpportunity.notes && (
-                  <Box>
-                    <Text size="2" color="gray">Notes</Text>
-                    <Text size="3">{selectedOpportunity.notes}</Text>
-                  </Box>
+                    {selectedOpportunity.notes && (
+                      <Box>
+                        <Text size="2" color="gray">Notes</Text>
+                        <Text size="3">{selectedOpportunity.notes}</Text>
+                      </Box>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <Box>
+                      <Text size="2" color="gray" mb="1">Company</Text>
+                      <TextField.Root
+                        value={editedOpportunity.company || ''}
+                        onChange={(e) => setEditedOpportunity({
+                          ...editedOpportunity,
+                          company: e.target.value
+                        })}
+                      />
+                    </Box>
+
+                    <Box>
+                      <Text size="2" color="gray" mb="1">Property Address</Text>
+                      <TextField.Root
+                        value={editedOpportunity.property_address || ''}
+                        onChange={(e) => setEditedOpportunity({
+                          ...editedOpportunity,
+                          property_address: e.target.value
+                        })}
+                      />
+                    </Box>
+
+                    <Box>
+                      <Text size="2" color="gray" mb="1">Contact Name</Text>
+                      <TextField.Root
+                        value={editedOpportunity.contact?.name || ''}
+                        onChange={(e) => setEditedOpportunity({
+                          ...editedOpportunity,
+                          contact: {
+                            ...editedOpportunity.contact!,
+                            name: e.target.value
+                          }
+                        })}
+                      />
+                    </Box>
+
+                    <Box>
+                      <Text size="2" color="gray" mb="1">Contact Email</Text>
+                      <TextField.Root
+                        value={editedOpportunity.contact?.email || ''}
+                        onChange={(e) => setEditedOpportunity({
+                          ...editedOpportunity,
+                          contact: {
+                            ...editedOpportunity.contact!,
+                            email: e.target.value
+                          }
+                        })}
+                      />
+                    </Box>
+
+                    <Box>
+                      <Text size="2" color="gray" mb="1">Contact Phone</Text>
+                      <TextField.Root
+                        value={editedOpportunity.contact?.phone || ''}
+                        onChange={(e) => setEditedOpportunity({
+                          ...editedOpportunity,
+                          contact: {
+                            ...editedOpportunity.contact!,
+                            phone: e.target.value
+                          }
+                        })}
+                      />
+                    </Box>
+
+                    <Box>
+                      <Text size="2" color="gray" mb="1">Notes</Text>
+                      <TextArea
+                        value={editedOpportunity.notes || ''}
+                        onChange={(e) => setEditedOpportunity({
+                          ...editedOpportunity,
+                          notes: e.target.value
+                        })}
+                        style={{ minHeight: 100 }}
+                      />
+                    </Box>
+                  </>
                 )}
 
                 <Separator size="4" />
@@ -397,9 +542,25 @@ const CRMPage: React.FC = () => {
             </Box>
           )}
           <Flex gap="3" mt="4" justify="end">
-            <Dialog.Close>
-              <Button variant="soft" color="gray">Close</Button>
-            </Dialog.Close>
+            {!isEditing ? (
+              <>
+                <Button variant="soft" onClick={handleEditOpportunity}>
+                  Edit
+                </Button>
+                <Dialog.Close>
+                  <Button variant="soft">Close</Button>
+                </Dialog.Close>
+              </>
+            ) : (
+              <>
+                <Button variant="soft" onClick={() => setIsEditing(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={saveOpportunityChanges}>
+                  Save Changes
+                </Button>
+              </>
+            )}
           </Flex>
         </Dialog.Content>
       </Dialog.Root>

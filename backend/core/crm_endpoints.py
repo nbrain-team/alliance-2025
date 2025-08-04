@@ -155,39 +155,24 @@ async def create_opportunity(
 @router.put("/opportunities/{opportunity_id}", response_model=OpportunityResponse)
 async def update_opportunity(
     opportunity_id: str,
-    update: OpportunityUpdate,
+    opportunity_update: OpportunityUpdate,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Update an opportunity."""
-    opportunity = db.query(Opportunity).filter(Opportunity.id == opportunity_id).first()
-    if not opportunity:
+    db_opportunity = db.query(Opportunity).filter(Opportunity.id == opportunity_id).first()
+    if not db_opportunity:
         raise HTTPException(status_code=404, detail="Opportunity not found")
     
-    # Track status change for activity log
-    old_status = opportunity.deal_status
+    update_data = opportunity_update.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_opportunity, key, value)
     
-    # Update fields
-    update_data = update.dict(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(opportunity, field, value)
+    db_opportunity.last_activity = datetime.utcnow()
     
-    opportunity.last_activity = datetime.utcnow()
     db.commit()
-    
-    # Log status change activity
-    if "deal_status" in update_data and update_data["deal_status"] != old_status:
-        activity = Activity(
-            opportunity_id=opportunity_id,
-            activity_type="note",
-            description=f"Status changed from {old_status} to {update_data['deal_status']}",
-            created_by=current_user.id
-        )
-        db.add(activity)
-        db.commit()
-    
-    db.refresh(opportunity)
-    return opportunity
+    db.refresh(db_opportunity)
+    return db_opportunity
 
 @router.delete("/opportunities/{opportunity_id}")
 async def delete_opportunity(
@@ -275,6 +260,25 @@ async def create_contact(
     db.refresh(new_contact)
     
     return new_contact
+
+@router.put("/contacts/{contact_id}", response_model=ContactResponse)
+async def update_contact(
+    contact_id: str,
+    contact: ContactBase,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Update a contact."""
+    db_contact = db.query(Contact).filter(Contact.id == contact_id).first()
+    if not db_contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    
+    for key, value in contact.dict().items():
+        setattr(db_contact, key, value)
+    
+    db.commit()
+    db.refresh(db_contact)
+    return db_contact
 
 # Deal status options
 @router.get("/deal-statuses")
