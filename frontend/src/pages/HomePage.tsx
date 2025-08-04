@@ -101,6 +101,13 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
             });
 
             if (!response.ok) {
+                if (response.status === 401) {
+                    // Token expired or invalid
+                    console.error('Authentication failed, redirecting to login');
+                    logout();
+                    navigate('/login');
+                    return;
+                }
                 throw new Error(`Server error: ${response.status}`);
             }
 
@@ -149,7 +156,12 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
             }
         } catch (error) {
             console.error('Error fetching stream:', error);
-            setMessages(prev => [...prev, { id: uuidv4(), text: 'Sorry, I ran into an issue.', sender: 'ai' }]);
+            if (error instanceof Error && error.message.includes('401')) {
+                logout();
+                navigate('/login');
+            } else {
+                setMessages(prev => [...prev, { id: uuidv4(), text: 'Sorry, I ran into an issue.', sender: 'ai' }]);
+            }
         } finally {
             setIsLoading(false);
         }
