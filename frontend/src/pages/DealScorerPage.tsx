@@ -26,7 +26,7 @@ interface DealData {
   parkingSpaces?: number;
   tenantNames?: string;
   leaseTerms?: string;
-  leasableSqFt?: number;
+  rentableSqFt?: number;
   fullBayAccess?: boolean;
   contact_name?: string;
   contact_email?: string;
@@ -275,7 +275,7 @@ const DealScorerPage = () => {
               addBotMessage("Got it! How many units does this property have?", undefined, 'text');
             } else if (dealData.propertyType === 'Medical Office/Veterinary') {
               setCurrentStep('mo_sqft');
-              addBotMessage("Thanks! What's the total leasable square footage?", undefined, 'text');
+              addBotMessage("Thanks! What's the total rentable square footage?", undefined, 'text');
             } else if (dealData.propertyType === 'Industrial') {
               setCurrentStep('ind_sqft');
               addBotMessage("Great! What's the total square footage of the industrial space?", undefined, 'text');
@@ -291,7 +291,7 @@ const DealScorerPage = () => {
             addBotMessage("Got it! How many units does this property have?", undefined, 'text');
           } else if (dealData.propertyType === 'Medical Office/Veterinary') {
             setCurrentStep('mo_sqft');
-            addBotMessage("Thanks! What's the total leasable square footage?", undefined, 'text');
+            addBotMessage("Thanks! What's the total rentable square footage?", undefined, 'text');
           } else if (dealData.propertyType === 'Industrial') {
             setCurrentStep('ind_sqft');
             addBotMessage("Great! What's the total square footage of the industrial space?", undefined, 'text');
@@ -364,7 +364,7 @@ const DealScorerPage = () => {
 
       // Medical Office flow
       case 'mo_sqft':
-        updatedData.leasableSqFt = parseInt(input);
+        updatedData.rentableSqFt = parseInt(input);
         setDealData(updatedData);
         setCurrentStep('mo_parking');
         addBotMessage("How many parking spaces are available?", undefined, 'text');
@@ -393,7 +393,7 @@ const DealScorerPage = () => {
 
       // Industrial flow
       case 'ind_sqft':
-        updatedData.leasableSqFt = parseInt(input);
+        updatedData.rentableSqFt = parseInt(input);
         setDealData(updatedData);
         setCurrentStep('ind_bayAccess');
         addBotMessage("Does the property have full-bay distribution truck access?", ['Yes', 'No'], 'radio');
