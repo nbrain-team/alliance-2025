@@ -236,14 +236,18 @@ const CRMPage: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Cold Lead': return 'blue';
-      case 'Intro': return 'cyan';
-      case 'Warm Lead': return 'orange';
-      case 'Discovery': return 'purple';
-      case 'Proposal': return 'yellow';
+      case 'Research': return 'gray';
+      case 'Gather': return 'blue';
+      case 'Underwriting PRE': return 'cyan';
+      case 'Underwriting EAP': return 'indigo';
+      case 'LOI Sent': return 'purple';
       case 'Negotiation': return 'amber';
+      case 'Signed LOI': return 'orange';
+      case 'PSA-Purchase Sale Agmt': return 'yellow';
+      case 'PSA Signed/Diligence': return 'lime';
+      case 'Remove Contingencies': return 'teal';
+      case 'Close Lost': return 'red';
       case 'Closed Won': return 'green';
-      case 'Closed Lost': return 'red';
       default: return 'gray';
     }
   };

@@ -285,14 +285,18 @@ async def update_contact(
 async def get_deal_statuses():
     """Get available deal status options."""
     return [
-        "Cold Lead",
-        "Intro", 
-        "Warm Lead",
-        "Discovery",
-        "Proposal",
+        "Research",
+        "Gather",
+        "Underwriting PRE",
+        "Underwriting EAP",
+        "LOI Sent",
         "Negotiation",
-        "Closed Won",
-        "Closed Lost"
+        "Signed LOI",
+        "PSA-Purchase Sale Agmt",
+        "PSA Signed/Diligence",
+        "Remove Contingencies",
+        "Close Lost",
+        "Closed Won"
     ]
 
 # Lead source options
