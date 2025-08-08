@@ -41,13 +41,13 @@ const LandingPage = () => {
             path: "/crm"
         },
         {
-            icon: <img src="/new-icons/16.webp" alt="Email" style={{ width: '32px', height: '32px' }} />,
+            icon: <img src="/new-icons/15.png" alt="Email" style={{ width: '32px', height: '32px' }} />,
             title: "Email Campaigns",
             description: "Create and manage AI-powered email marketing campaigns.",
             path: "/email-campaigns"
         },
         {
-            icon: <img src="/new-icons/15.png" alt="HR" style={{ width: '32px', height: '32px' }} />,
+            icon: <img src="/new-icons/7.png" alt="HR" style={{ width: '32px', height: '32px' }} />,
             title: "HR Onboarding",
             description: "Automate employee onboarding from pre-hire to 90 days.",
             path: "/hr-onboarding"

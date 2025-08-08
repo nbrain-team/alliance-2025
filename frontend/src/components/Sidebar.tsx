@@ -69,10 +69,10 @@ export const Sidebar = ({ onNewChat }: { onNewChat: () => void }) => {
                     <img src="/new-icons/14.webp" alt="CRM" />
                 </button>
                 <button className="sidebar-icon" title="Email Campaigns" onClick={() => navigate('/email-campaigns')}>
-                    <img src="/new-icons/16.webp" alt="Email Campaigns" />
+                    <img src="/new-icons/15.png" alt="Email Campaigns" />
                 </button>
                 <button className="sidebar-icon" title="HR Onboarding" onClick={() => navigate('/hr-onboarding')}>
-                    <img src="/new-icons/15.png" alt="HR Onboarding" />
+                    <img src="/new-icons/7.png" alt="HR Onboarding" />
                 </button>
             </Flex>
         </Flex>
