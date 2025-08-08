@@ -207,7 +207,7 @@ const HROnboarding: React.FC = () => {
       <Flex justify="between" align="center" mb="4">
         <Flex align="center" gap="3">
           <img 
-            src="/new-icons/15.webp" 
+            src="/new-icons/15.png" 
             alt="HR Onboarding" 
             style={{ width: '48px', height: '48px' }}
           />

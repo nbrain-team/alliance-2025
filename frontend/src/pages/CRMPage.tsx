@@ -448,68 +448,84 @@ const CRMPage: React.FC = () => {
                   {/* Expanded Row Content */}
                   {expandedRows.has(opportunity.id) && (
                     <Table.Row>
-                      <Table.Cell colSpan={7} style={{ backgroundColor: 'var(--gray-2)', padding: '1rem' }}>
+                      <Table.Cell colSpan={7} style={{ backgroundColor: 'var(--gray-2)', padding: '1.5rem' }}>
                         <Box>
                           <Flex gap="6" wrap="wrap">
                             {/* Column 1: Property & Deal Info */}
                             <Box style={{ flex: '1 1 300px' }}>
-                              <Text size="2" weight="bold" color="gray" mb="3">Property & Deal Information</Text>
+                              <Text size="3" weight="bold" mb="4">Property & Deal Information</Text>
                               
                               {opportunity.property_type && (
-                                <Box mb="2">
-                                  <Text size="1" color="gray">Property Type</Text>
-                                  <Text size="2">{opportunity.property_type}</Text>
+                                <Box mb="3">
+                                  <Text size="2" weight="medium" color="gray" style={{ display: 'block', marginBottom: '0.25rem' }}>
+                                    Property Type
+                                  </Text>
+                                  <Text size="3">{opportunity.property_type}</Text>
                                 </Box>
                               )}
                               
                               {opportunity.deal_value && (
-                                <Box mb="2">
-                                  <Text size="1" color="gray">Deal Value</Text>
-                                  <Text size="2">${(opportunity.deal_value / 100).toLocaleString()}</Text>
+                                <Box mb="3">
+                                  <Text size="2" weight="medium" color="gray" style={{ display: 'block', marginBottom: '0.25rem' }}>
+                                    Deal Value
+                                  </Text>
+                                  <Text size="3" weight="medium">${(opportunity.deal_value / 100).toLocaleString()}</Text>
                                 </Box>
                               )}
                               
                               {opportunity.assigned_to && (
-                                <Box mb="2">
-                                  <Text size="1" color="gray">Assigned To</Text>
-                                  <Text size="2">{opportunity.assigned_to}</Text>
+                                <Box mb="3">
+                                  <Text size="2" weight="medium" color="gray" style={{ display: 'block', marginBottom: '0.25rem' }}>
+                                    Assigned To
+                                  </Text>
+                                  <Text size="3">{opportunity.assigned_to}</Text>
                                 </Box>
                               )}
                               
-                              <Box mb="2">
-                                <Text size="1" color="gray">Last Activity</Text>
-                                <Text size="2">{format(new Date(opportunity.last_activity), 'MM/dd/yy h:mm a')}</Text>
+                              <Box mb="3">
+                                <Text size="2" weight="medium" color="gray" style={{ display: 'block', marginBottom: '0.25rem' }}>
+                                  Last Activity
+                                </Text>
+                                <Text size="3">{format(new Date(opportunity.last_activity), 'MM/dd/yy h:mm a')}</Text>
                               </Box>
                               
-                              <Box mb="2">
-                                <Text size="1" color="gray">Created</Text>
-                                <Text size="2">{format(new Date(opportunity.created_at), 'MM/dd/yy')}</Text>
+                              <Box mb="3">
+                                <Text size="2" weight="medium" color="gray" style={{ display: 'block', marginBottom: '0.25rem' }}>
+                                  Created
+                                </Text>
+                                <Text size="3">{format(new Date(opportunity.created_at), 'MM/dd/yy')}</Text>
                               </Box>
                             </Box>
 
                             {/* Column 2: Contact Details */}
                             <Box style={{ flex: '1 1 300px' }}>
-                              <Text size="2" weight="bold" color="gray" mb="3">Contact Details</Text>
+                              <Text size="3" weight="bold" mb="4">Contact Details</Text>
                               
-                              <Box mb="2">
-                                <Text size="1" color="gray">Name</Text>
-                                <Text size="2">{opportunity.contact.name}</Text>
+                              <Box mb="3">
+                                <Text size="2" weight="medium" color="gray" style={{ display: 'block', marginBottom: '0.25rem' }}>
+                                  Name
+                                </Text>
+                                <Text size="3">{opportunity.contact.name}</Text>
                               </Box>
                               
-                              <Box mb="2">
-                                <Text size="1" color="gray">Email</Text>
-                                <Text size="2">
-                                  <a href={`mailto:${opportunity.contact.email}`} style={{ color: 'var(--accent-9)' }}>
+                              <Box mb="3">
+                                <Text size="2" weight="medium" color="gray" style={{ display: 'block', marginBottom: '0.25rem' }}>
+                                  Email
+                                </Text>
+                                <Text size="3">
+                                  <a href={`mailto:${opportunity.contact.email}`} style={{ color: 'var(--accent-9)', textDecoration: 'none' }}>
                                     {opportunity.contact.email}
                                   </a>
                                 </Text>
                               </Box>
                               
                               {opportunity.contact.phone && (
-                                <Box mb="2">
-                                  <Text size="1" color="gray">Phone</Text>
-                                  <Text size="2">
-                                    <a href={`tel:${opportunity.contact.phone}`} style={{ color: 'var(--accent-9)' }}>
+                                <Box mb="3">
+                                  <Text size="2" weight="medium" color="gray" style={{ display: 'block', marginBottom: '0.25rem' }}>
+                                    Phone
+                                  </Text>
+                                  <Text size="3">
+                                    <a href={`tel:${opportunity.contact.phone}`} style={{ color: 'var(--accent-9)', textDecoration: 'none' }}>
                                       {opportunity.contact.phone}
                                     </a>
                                   </Text>
@@ -517,30 +533,36 @@ const CRMPage: React.FC = () => {
                               )}
                               
                               {opportunity.contact.office_address && (
-                                <Box mb="2">
-                                  <Text size="1" color="gray">Office Address</Text>
-                                  <Text size="2">{opportunity.contact.office_address}</Text>
+                                <Box mb="3">
+                                  <Text size="2" weight="medium" color="gray" style={{ display: 'block', marginBottom: '0.25rem' }}>
+                                    Office Address
+                                  </Text>
+                                  <Text size="3">{opportunity.contact.office_address}</Text>
                                 </Box>
                               )}
                             </Box>
 
                             {/* Column 3: Notes & Tags */}
                             <Box style={{ flex: '1 1 300px' }}>
-                              <Text size="2" weight="bold" color="gray" mb="3">Notes & Tags</Text>
+                              <Text size="3" weight="bold" mb="4">Notes & Tags</Text>
                               
                               {opportunity.notes && (
-                                <Box mb="3">
-                                  <Text size="1" color="gray">Notes</Text>
-                                  <Text size="2" style={{ whiteSpace: 'pre-wrap' }}>{opportunity.notes}</Text>
+                                <Box mb="4">
+                                  <Text size="2" weight="medium" color="gray" style={{ display: 'block', marginBottom: '0.25rem' }}>
+                                    Notes
+                                  </Text>
+                                  <Text size="3" style={{ whiteSpace: 'pre-wrap' }}>{opportunity.notes}</Text>
                                 </Box>
                               )}
                               
                               {/* Tags Section */}
                               <Box>
-                                <Text size="1" color="gray" mb="1">Tags</Text>
-                                <Flex gap="1" wrap="wrap" mb="2">
+                                <Text size="2" weight="medium" color="gray" style={{ display: 'block', marginBottom: '0.5rem' }}>
+                                  Tags
+                                </Text>
+                                <Flex gap="2" wrap="wrap" mb="3">
                                   {(opportunityTags[opportunity.id] || []).map((tag, index) => (
-                                    <Badge key={index} variant="soft" color="blue">
+                                    <Badge key={index} size="2" variant="soft" color="blue">
                                       {tag}
                                       <IconButton
                                         size="1"
@@ -560,7 +582,7 @@ const CRMPage: React.FC = () => {
                                 {editingTagsFor === opportunity.id ? (
                                   <Flex gap="2" align="center">
                                     <TextField.Root
-                                      size="1"
+                                      size="2"
                                       placeholder="Add a tag..."
                                       value={newTag}
                                       onChange={(e) => setNewTag(e.target.value)}
@@ -572,7 +594,7 @@ const CRMPage: React.FC = () => {
                                       onClick={(e) => e.stopPropagation()}
                                     />
                                     <Button 
-                                      size="1" 
+                                      size="2" 
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         addTag(opportunity.id);
@@ -582,7 +604,7 @@ const CRMPage: React.FC = () => {
                                       Add
                                     </Button>
                                     <Button 
-                                      size="1" 
+                                      size="2" 
                                       variant="soft"
                                       onClick={(e) => {
                                         e.stopPropagation();
@@ -595,14 +617,14 @@ const CRMPage: React.FC = () => {
                                   </Flex>
                                 ) : (
                                   <Button 
-                                    size="1" 
+                                    size="2" 
                                     variant="soft"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       setEditingTagsFor(opportunity.id);
                                     }}
                                   >
-                                    <PlusIcon width="12" height="12" />
+                                    <PlusIcon width="14" height="14" />
                                     Add Tag
                                   </Button>
                                 )}
@@ -612,17 +634,17 @@ const CRMPage: React.FC = () => {
 
                           {/* Recent Activities Section */}
                           {opportunity.activities && opportunity.activities.length > 0 && (
-                            <Box mt="4">
-                              <Separator size="4" mb="3" />
-                              <Text size="2" weight="bold" color="gray" mb="2">Recent Activities</Text>
-                              <Box style={{ maxHeight: '150px', overflowY: 'auto' }}>
+                            <Box mt="5">
+                              <Separator size="4" mb="4" />
+                              <Text size="3" weight="bold" mb="3">Recent Activities</Text>
+                              <Box style={{ maxHeight: '200px', overflowY: 'auto' }}>
                                 {opportunity.activities.slice(0, 5).map((activity) => (
-                                  <Flex key={activity.id} justify="between" mb="2">
-                                    <Text size="2">
-                                      <Badge size="1" variant="soft" mr="2">{activity.activity_type}</Badge>
-                                      {activity.description}
-                                    </Text>
-                                    <Text size="1" color="gray">
+                                  <Flex key={activity.id} justify="between" mb="3" style={{ padding: '0.5rem', backgroundColor: 'var(--gray-3)', borderRadius: '4px' }}>
+                                    <Flex align="center" gap="2">
+                                      <Badge size="2" variant="soft">{activity.activity_type}</Badge>
+                                      <Text size="2">{activity.description}</Text>
+                                    </Flex>
+                                    <Text size="2" color="gray">
                                       {format(new Date(activity.created_at), 'MM/dd h:mm a')}
                                     </Text>
                                   </Flex>

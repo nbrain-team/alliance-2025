@@ -14,7 +14,6 @@ import { useAuth } from '../context/AuthContext';
 
 const navItems = [
     { name: 'Knowledge Base', href: '/knowledge-base', icon: BackpackIcon },
-    { name: 'AI Report Generator', href: '/generator', icon: FileTextIcon },
     { name: 'Chat History', href: '/history', icon: ReaderIcon },
     { name: 'Feedback Log', href: '/feedback', icon: BarChartIcon }
 ];
@@ -60,9 +59,6 @@ export const Sidebar = ({ onNewChat }: { onNewChat: () => void }) => {
                 <button className="sidebar-icon" title="Knowledge Base" onClick={() => navigate('/knowledge')}>
                     <img src="/new-icons/4.png" alt="Upload" />
                 </button>
-                <button className="sidebar-icon" title="AI Generator" onClick={() => navigate('/generator')}>
-                    <img src="/new-icons/7.png" alt="AI Generator" />
-                </button>
                 <button className="sidebar-icon" title="AI Agent Ideator" onClick={() => navigate('/agent-ideas')}>
                     <img src="/new-icons/3.png" alt="Agent Ideator" />
                 </button>
@@ -76,7 +72,7 @@ export const Sidebar = ({ onNewChat }: { onNewChat: () => void }) => {
                     <img src="/new-icons/16.webp" alt="Email Campaigns" />
                 </button>
                 <button className="sidebar-icon" title="HR Onboarding" onClick={() => navigate('/hr-onboarding')}>
-                    <img src="/new-icons/15.webp" alt="HR Onboarding" />
+                    <img src="/new-icons/15.png" alt="HR Onboarding" />
                 </button>
             </Flex>
         </Flex>

@@ -1,26 +1,56 @@
 import { Grid, Card, Text, Heading, Flex, Box, Section } from '@radix-ui/themes';
 import { Link } from 'react-router-dom';
-import { RocketIcon, FileTextIcon, ChatBubbleIcon, ReaderIcon } from '@radix-ui/react-icons';
+import { RocketIcon, FileTextIcon, ChatBubbleIcon, ReaderIcon, PersonIcon, EnvelopeClosedIcon, BackpackIcon, BarChartIcon } from '@radix-ui/react-icons';
 
 const LandingPage = () => {
     const modules = [
         {
-            icon: <ChatBubbleIcon width="24" height="24" />,
+            icon: <img src="/new-icons/13.png" alt="Chat" style={{ width: '32px', height: '32px' }} />,
             title: "AI Chat",
-            description: "Engage in intelligent conversations with your data.",
+            description: "Engage in intelligent conversations with your property data and documents.",
             path: "/"
         },
         {
-            icon: <FileTextIcon width="24" height="24" />,
-            title: "Content Generator",
-            description: "Generate personalized content based on your knowledge.",
-            path: "/generator"
+            icon: <img src="/new-icons/2.png" alt="History" style={{ width: '32px', height: '32px' }} />,
+            title: "Chat History",
+            description: "Review and manage your past conversations and insights.",
+            path: "/history"
         },
         {
-            icon: <ReaderIcon width="24" height="24" />,
+            icon: <img src="/new-icons/4.png" alt="Knowledge" style={{ width: '32px', height: '32px' }} />,
             title: "Knowledge Base",
-            description: "Manage and upload your documents.",
+            description: "Upload and manage your property documents and data.",
             path: "/knowledge"
+        },
+        {
+            icon: <img src="/new-icons/3.png" alt="Agent" style={{ width: '32px', height: '32px' }} />,
+            title: "AI Agent Ideator",
+            description: "Design and create custom AI agents for your business workflows.",
+            path: "/agent-ideas"
+        },
+        {
+            icon: <img src="/new-icons/5.png" alt="Deal Scorer" style={{ width: '32px', height: '32px' }} />,
+            title: "Score My Deal",
+            description: "AI-powered real estate deal evaluation and scoring.",
+            path: "/score-my-deal"
+        },
+        {
+            icon: <img src="/new-icons/14.webp" alt="CRM" style={{ width: '32px', height: '32px' }} />,
+            title: "CRM Pipeline",
+            description: "Manage your real estate opportunities and contacts.",
+            path: "/crm"
+        },
+        {
+            icon: <img src="/new-icons/16.webp" alt="Email" style={{ width: '32px', height: '32px' }} />,
+            title: "Email Campaigns",
+            description: "Create and manage AI-powered email marketing campaigns.",
+            path: "/email-campaigns"
+        },
+        {
+            icon: <img src="/new-icons/15.png" alt="HR" style={{ width: '32px', height: '32px' }} />,
+            title: "HR Onboarding",
+            description: "Automate employee onboarding from pre-hire to 90 days.",
+            path: "/hr-onboarding"
         },
     ];
 
@@ -29,20 +59,20 @@ const LandingPage = () => {
             <Box style={{ textAlign: 'center', marginBottom: '4rem' }}>
                 <img src="/new-icons/adtv-logo.png" alt="Alliance Logo" style={{ maxWidth: '300px', marginBottom: '2rem' }} />
                 <Heading align="center" size="8" style={{ color: 'var(--gray-12)', marginBottom: '1rem' }}>
-                    Unlock Your Data's Potential
+                    REI Nexus Command Center
                 </Heading>
                 <Text as="p" size="4" style={{ color: 'var(--gray-11)', maxWidth: '600px', margin: '0 auto' }}>
-                    Welcome to the Alliance AI Platform. Seamlessly integrate your knowledge base, generate personalized content, and engage in intelligent conversations to drive your business forward.
+                    Welcome to the Alliance AI Platform. Your comprehensive real estate investment hub powered by cutting-edge AI technology.
                 </Text>
             </Box>
 
-            <Grid columns={{ initial: '1', sm: '2', md: '3' }} gap="4" width="100%" style={{ maxWidth: '1000px', margin: '0 auto' }}>
+            <Grid columns={{ initial: '1', sm: '2', md: '3', lg: '4' }} gap="4" width="100%" style={{ maxWidth: '1200px', margin: '0 auto' }}>
                 {modules.map((module, index) => (
                     <Link to={module.path} key={index} style={{ textDecoration: 'none' }}>
                         <Card className="module-card">
-                            <Flex direction="column" align="center" gap="3">
+                            <Flex direction="column" align="center" gap="3" style={{ padding: '1.5rem' }}>
                                 <div className="icon-circle">{module.icon}</div>
-                                <Heading as="h3" size="5">{module.title}</Heading>
+                                <Heading as="h3" size="4" align="center">{module.title}</Heading>
                                 <Text as="p" size="2" align="center" style={{ color: 'var(--gray-11)' }}>{module.description}</Text>
                             </Flex>
                         </Card>
@@ -59,6 +89,7 @@ const LandingPage = () => {
                     background-color: var(--gray-2);
                     border: 1px solid var(--gray-4);
                     height: 100%;
+                    min-height: 200px;
                 }
                 .module-card:hover {
                     transform: translateY(-5px);
@@ -66,8 +97,8 @@ const LandingPage = () => {
                     border-color: var(--accent-9);
                 }
                 .icon-circle {
-                    width: 48px;
-                    height: 48px;
+                    width: 64px;
+                    height: 64px;
                     border-radius: 50%;
                     background-color: var(--accent-3);
                     color: var(--accent-11);
