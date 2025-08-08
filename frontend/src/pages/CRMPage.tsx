@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Container, Card, Box, Heading, Table, Badge, Button, Select, TextField, Flex, IconButton, Dialog, Text, Separator, TextArea } from '@radix-ui/themes';
-import { MagnifyingGlassIcon, PlusIcon, TrashIcon, Pencil1Icon, ActivityLogIcon } from '@radix-ui/react-icons';
+import { MagnifyingGlassIcon, PlusIcon, TrashIcon, Pencil1Icon, ActivityLogIcon, ChevronDownIcon, ChevronRightIcon, Cross2Icon } from '@radix-ui/react-icons';
 import axios from 'axios';
 import { format } from 'date-fns';
 
@@ -57,6 +57,12 @@ const CRMPage: React.FC = () => {
   // Add state for editing
   const [editedOpportunity, setEditedOpportunity] = useState<Partial<Opportunity>>({});
   const [isEditing, setIsEditing] = useState(false);
+  
+  // Add state for expanded rows and tags
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [opportunityTags, setOpportunityTags] = useState<Record<string, string[]>>({});
+  const [newTag, setNewTag] = useState<string>('');
+  const [editingTagsFor, setEditingTagsFor] = useState<string | null>(null);
 
   useEffect(() => {
     fetchOpportunities();
@@ -263,6 +269,35 @@ const CRMPage: React.FC = () => {
     }
   };
 
+  const toggleRowExpansion = (opportunityId: string) => {
+    setExpandedRows(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(opportunityId)) {
+        newSet.delete(opportunityId);
+      } else {
+        newSet.add(opportunityId);
+      }
+      return newSet;
+    });
+  };
+
+  const addTag = (opportunityId: string) => {
+    if (!newTag.trim()) return;
+    
+    setOpportunityTags(prev => ({
+      ...prev,
+      [opportunityId]: [...(prev[opportunityId] || []), newTag.trim()]
+    }));
+    setNewTag('');
+  };
+
+  const removeTag = (opportunityId: string, tagToRemove: string) => {
+    setOpportunityTags(prev => ({
+      ...prev,
+      [opportunityId]: (prev[opportunityId] || []).filter(tag => tag !== tagToRemove)
+    }));
+  };
+
   return (
     <Container size="4" style={{ padding: '2rem', height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <Flex justify="between" align="center" mb="4">
@@ -310,6 +345,7 @@ const CRMPage: React.FC = () => {
           <Table.Root>
             <Table.Header style={{ position: 'sticky', top: 0, backgroundColor: 'var(--color-background)', zIndex: 1 }}>
               <Table.Row>
+                <Table.ColumnHeaderCell style={{ width: '40px' }}></Table.ColumnHeaderCell>
                 <Table.ColumnHeaderCell>Deal Status</Table.ColumnHeaderCell>
                 <Table.ColumnHeaderCell>Company</Table.ColumnHeaderCell>
                 <Table.ColumnHeaderCell>Contact</Table.ColumnHeaderCell>
@@ -320,80 +356,285 @@ const CRMPage: React.FC = () => {
             </Table.Header>
             <Table.Body>
               {filteredOpportunities.map((opportunity) => (
-                <Table.Row key={opportunity.id}>
-                  <Table.Cell>
-                    <Select.Root 
-                      value={opportunity.deal_status} 
-                      onValueChange={(value) => updateOpportunityStatus(opportunity.id, value)}
-                    >
-                      <Select.Trigger variant="ghost">
-                        <Badge color={getStatusColor(opportunity.deal_status)}>
-                          {opportunity.deal_status}
-                        </Badge>
-                      </Select.Trigger>
-                      <Select.Content>
-                        {dealStatuses.map(status => (
-                          <Select.Item key={status} value={status}>{status}</Select.Item>
-                        ))}
-                      </Select.Content>
-                    </Select.Root>
-                  </Table.Cell>
-                  <Table.Cell>
-                    <Text weight="medium">{opportunity.company}</Text>
-                    {opportunity.property_address && (
+                <React.Fragment key={opportunity.id}>
+                  <Table.Row 
+                    style={{ cursor: 'pointer' }}
+                    onClick={(e) => {
+                      // Don't expand if clicking on action buttons or select
+                      if (!(e.target as HTMLElement).closest('button, select, [role="combobox"]')) {
+                        toggleRowExpansion(opportunity.id);
+                      }
+                    }}
+                  >
+                    <Table.Cell>
+                      <IconButton size="1" variant="ghost">
+                        {expandedRows.has(opportunity.id) ? <ChevronDownIcon /> : <ChevronRightIcon />}
+                      </IconButton>
+                    </Table.Cell>
+                    <Table.Cell onClick={(e) => e.stopPropagation()}>
+                      <Select.Root 
+                        value={opportunity.deal_status} 
+                        onValueChange={(value) => updateOpportunityStatus(opportunity.id, value)}
+                      >
+                        <Select.Trigger variant="ghost">
+                          <Badge color={getStatusColor(opportunity.deal_status)}>
+                            {opportunity.deal_status}
+                          </Badge>
+                        </Select.Trigger>
+                        <Select.Content>
+                          {dealStatuses.map(status => (
+                            <Select.Item key={status} value={status}>{status}</Select.Item>
+                          ))}
+                        </Select.Content>
+                      </Select.Root>
+                    </Table.Cell>
+                    <Table.Cell>
+                      <Text weight="medium">{opportunity.company}</Text>
+                      {opportunity.property_address && (
+                        <Text size="1" color="gray" style={{ display: 'block' }}>
+                          {opportunity.property_address}
+                        </Text>
+                      )}
+                    </Table.Cell>
+                    <Table.Cell>
+                      <Text>{opportunity.contact.name}</Text>
                       <Text size="1" color="gray" style={{ display: 'block' }}>
-                        {opportunity.property_address}
+                        {opportunity.contact.email}
                       </Text>
-                    )}
-                  </Table.Cell>
-                  <Table.Cell>
-                    <Text>{opportunity.contact.name}</Text>
-                    <Text size="1" color="gray" style={{ display: 'block' }}>
-                      {opportunity.contact.email}
-                    </Text>
-                  </Table.Cell>
-                  <Table.Cell>
-                    <Badge color={getSourceColor(opportunity.lead_source)}>
-                      {opportunity.lead_source}
-                    </Badge>
-                  </Table.Cell>
-                  <Table.Cell>
-                    {format(new Date(opportunity.lead_date), 'MM/dd/yy')}
-                  </Table.Cell>
-                  <Table.Cell>
-                    <Flex gap="2">
-                      <IconButton 
-                        size="1" 
-                        variant="ghost"
-                        onClick={() => {
-                          setSelectedOpportunity(opportunity);
-                          setShowDetailDialog(true);
-                          setIsEditing(false);
-                        }}
-                      >
-                        <Pencil1Icon />
-                      </IconButton>
-                      <IconButton 
-                        size="1" 
-                        variant="ghost"
-                        onClick={() => {
-                          setSelectedOpportunity(opportunity);
-                          setShowActivityDialog(true);
-                        }}
-                      >
-                        <ActivityLogIcon />
-                      </IconButton>
-                      <IconButton 
-                        size="1" 
-                        variant="ghost" 
-                        color="red"
-                        onClick={() => deleteOpportunity(opportunity.id)}
-                      >
-                        <TrashIcon />
-                      </IconButton>
-                    </Flex>
-                  </Table.Cell>
-                </Table.Row>
+                    </Table.Cell>
+                    <Table.Cell>
+                      <Badge color={getSourceColor(opportunity.lead_source)}>
+                        {opportunity.lead_source}
+                      </Badge>
+                    </Table.Cell>
+                    <Table.Cell>
+                      {format(new Date(opportunity.lead_date), 'MM/dd/yy')}
+                    </Table.Cell>
+                    <Table.Cell onClick={(e) => e.stopPropagation()}>
+                      <Flex gap="2">
+                        <IconButton 
+                          size="1" 
+                          variant="ghost"
+                          onClick={() => {
+                            setSelectedOpportunity(opportunity);
+                            setShowDetailDialog(true);
+                            setIsEditing(false);
+                          }}
+                        >
+                          <Pencil1Icon />
+                        </IconButton>
+                        <IconButton 
+                          size="1" 
+                          variant="ghost"
+                          onClick={() => {
+                            setSelectedOpportunity(opportunity);
+                            setShowActivityDialog(true);
+                          }}
+                        >
+                          <ActivityLogIcon />
+                        </IconButton>
+                        <IconButton 
+                          size="1" 
+                          variant="ghost" 
+                          color="red"
+                          onClick={() => deleteOpportunity(opportunity.id)}
+                        >
+                          <TrashIcon />
+                        </IconButton>
+                      </Flex>
+                    </Table.Cell>
+                  </Table.Row>
+                  
+                  {/* Expanded Row Content */}
+                  {expandedRows.has(opportunity.id) && (
+                    <Table.Row>
+                      <Table.Cell colSpan={7} style={{ backgroundColor: 'var(--gray-2)', padding: '1rem' }}>
+                        <Box>
+                          <Flex gap="6" wrap="wrap">
+                            {/* Column 1: Property & Deal Info */}
+                            <Box style={{ flex: '1 1 300px' }}>
+                              <Text size="2" weight="bold" color="gray" mb="3">Property & Deal Information</Text>
+                              
+                              {opportunity.property_type && (
+                                <Box mb="2">
+                                  <Text size="1" color="gray">Property Type</Text>
+                                  <Text size="2">{opportunity.property_type}</Text>
+                                </Box>
+                              )}
+                              
+                              {opportunity.deal_value && (
+                                <Box mb="2">
+                                  <Text size="1" color="gray">Deal Value</Text>
+                                  <Text size="2">${(opportunity.deal_value / 100).toLocaleString()}</Text>
+                                </Box>
+                              )}
+                              
+                              {opportunity.assigned_to && (
+                                <Box mb="2">
+                                  <Text size="1" color="gray">Assigned To</Text>
+                                  <Text size="2">{opportunity.assigned_to}</Text>
+                                </Box>
+                              )}
+                              
+                              <Box mb="2">
+                                <Text size="1" color="gray">Last Activity</Text>
+                                <Text size="2">{format(new Date(opportunity.last_activity), 'MM/dd/yy h:mm a')}</Text>
+                              </Box>
+                              
+                              <Box mb="2">
+                                <Text size="1" color="gray">Created</Text>
+                                <Text size="2">{format(new Date(opportunity.created_at), 'MM/dd/yy')}</Text>
+                              </Box>
+                            </Box>
+
+                            {/* Column 2: Contact Details */}
+                            <Box style={{ flex: '1 1 300px' }}>
+                              <Text size="2" weight="bold" color="gray" mb="3">Contact Details</Text>
+                              
+                              <Box mb="2">
+                                <Text size="1" color="gray">Name</Text>
+                                <Text size="2">{opportunity.contact.name}</Text>
+                              </Box>
+                              
+                              <Box mb="2">
+                                <Text size="1" color="gray">Email</Text>
+                                <Text size="2">
+                                  <a href={`mailto:${opportunity.contact.email}`} style={{ color: 'var(--accent-9)' }}>
+                                    {opportunity.contact.email}
+                                  </a>
+                                </Text>
+                              </Box>
+                              
+                              {opportunity.contact.phone && (
+                                <Box mb="2">
+                                  <Text size="1" color="gray">Phone</Text>
+                                  <Text size="2">
+                                    <a href={`tel:${opportunity.contact.phone}`} style={{ color: 'var(--accent-9)' }}>
+                                      {opportunity.contact.phone}
+                                    </a>
+                                  </Text>
+                                </Box>
+                              )}
+                              
+                              {opportunity.contact.office_address && (
+                                <Box mb="2">
+                                  <Text size="1" color="gray">Office Address</Text>
+                                  <Text size="2">{opportunity.contact.office_address}</Text>
+                                </Box>
+                              )}
+                            </Box>
+
+                            {/* Column 3: Notes & Tags */}
+                            <Box style={{ flex: '1 1 300px' }}>
+                              <Text size="2" weight="bold" color="gray" mb="3">Notes & Tags</Text>
+                              
+                              {opportunity.notes && (
+                                <Box mb="3">
+                                  <Text size="1" color="gray">Notes</Text>
+                                  <Text size="2" style={{ whiteSpace: 'pre-wrap' }}>{opportunity.notes}</Text>
+                                </Box>
+                              )}
+                              
+                              {/* Tags Section */}
+                              <Box>
+                                <Text size="1" color="gray" mb="1">Tags</Text>
+                                <Flex gap="1" wrap="wrap" mb="2">
+                                  {(opportunityTags[opportunity.id] || []).map((tag, index) => (
+                                    <Badge key={index} variant="soft" color="blue">
+                                      {tag}
+                                      <IconButton
+                                        size="1"
+                                        variant="ghost"
+                                        style={{ marginLeft: '4px', padding: '0', height: '14px', width: '14px' }}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          removeTag(opportunity.id, tag);
+                                        }}
+                                      >
+                                        <Cross2Icon width="10" height="10" />
+                                      </IconButton>
+                                    </Badge>
+                                  ))}
+                                </Flex>
+                                
+                                {editingTagsFor === opportunity.id ? (
+                                  <Flex gap="2" align="center">
+                                    <TextField.Root
+                                      size="1"
+                                      placeholder="Add a tag..."
+                                      value={newTag}
+                                      onChange={(e) => setNewTag(e.target.value)}
+                                      onKeyPress={(e) => {
+                                        if (e.key === 'Enter') {
+                                          addTag(opportunity.id);
+                                        }
+                                      }}
+                                      onClick={(e) => e.stopPropagation()}
+                                    />
+                                    <Button 
+                                      size="1" 
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        addTag(opportunity.id);
+                                        setEditingTagsFor(null);
+                                      }}
+                                    >
+                                      Add
+                                    </Button>
+                                    <Button 
+                                      size="1" 
+                                      variant="soft"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setEditingTagsFor(null);
+                                        setNewTag('');
+                                      }}
+                                    >
+                                      Cancel
+                                    </Button>
+                                  </Flex>
+                                ) : (
+                                  <Button 
+                                    size="1" 
+                                    variant="soft"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setEditingTagsFor(opportunity.id);
+                                    }}
+                                  >
+                                    <PlusIcon width="12" height="12" />
+                                    Add Tag
+                                  </Button>
+                                )}
+                              </Box>
+                            </Box>
+                          </Flex>
+
+                          {/* Recent Activities Section */}
+                          {opportunity.activities && opportunity.activities.length > 0 && (
+                            <Box mt="4">
+                              <Separator size="4" mb="3" />
+                              <Text size="2" weight="bold" color="gray" mb="2">Recent Activities</Text>
+                              <Box style={{ maxHeight: '150px', overflowY: 'auto' }}>
+                                {opportunity.activities.slice(0, 5).map((activity) => (
+                                  <Flex key={activity.id} justify="between" mb="2">
+                                    <Text size="2">
+                                      <Badge size="1" variant="soft" mr="2">{activity.activity_type}</Badge>
+                                      {activity.description}
+                                    </Text>
+                                    <Text size="1" color="gray">
+                                      {format(new Date(activity.created_at), 'MM/dd h:mm a')}
+                                    </Text>
+                                  </Flex>
+                                ))}
+                              </Box>
+                            </Box>
+                          )}
+                        </Box>
+                      </Table.Cell>
+                    </Table.Row>
+                  )}
+                </React.Fragment>
               ))}
             </Table.Body>
           </Table.Root>
