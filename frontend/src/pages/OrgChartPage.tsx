@@ -15,7 +15,6 @@ import ReactFlow, {
   Edge,
   Connection,
   OnConnect,
-  useReactFlow
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { PlusIcon, ArrowLeftIcon, TrashIcon } from '@radix-ui/react-icons';
@@ -37,8 +36,10 @@ type OrgNodeData = {
 
 const STORAGE_KEYS = {
   nodes: 'orgChart:nodes',
-  edges: 'orgChart:edges'
+  edges: 'orgChart:edges',
+  version: 'orgChart:version'
 };
+const CURRENT_SEED_VERSION = 'new-org-v1';
 
 function OrgNode({ data }: { data: OrgNodeData }) {
   return (
@@ -176,77 +177,43 @@ const OrgChartPage: React.FC = () => {
     persistToStorage(nodes, edges);
   }, [nodes, edges]);
 
-  // Auto-load CSV from public on first run (when no saved nodes)
+  // Load CSV from public/new-org.csv using explicit id/parent id mapping
   useEffect(() => {
-    if (stored.nodes) return;
-    async function loadCsv() {
+    const storedVersion = localStorage.getItem(STORAGE_KEYS.version);
+    const hasStored = !!localStorage.getItem(STORAGE_KEYS.nodes);
+    if (storedVersion === CURRENT_SEED_VERSION && hasStored) return;
+    if (storedVersion !== CURRENT_SEED_VERSION) {
+      localStorage.removeItem(STORAGE_KEYS.nodes);
+      localStorage.removeItem(STORAGE_KEYS.edges);
+    }
+    async function loadCsvExact() {
       try {
-        const res = await fetch('/org-nodes.csv');
+        const res = await fetch('/new-org.csv');
         if (!res.ok) return;
         const text = await res.text();
         const parsed = Papa.parse(text, { header: true, skipEmptyLines: true });
         const rows = (parsed.data as any[]).filter(Boolean);
-        const normalize = (s: any) => String(s || '').trim();
-        const full = rows.map((r) => {
-          const first = normalize(r['First Name']);
-          const last = normalize(r['Last Name']);
-          const dept = normalize(r['Dept.']);
-          const title = normalize(r['Title']);
-          const email = normalize(r['Email']);
-          const phone = normalize(r['Mobile']) || normalize(r['Direct Line']);
-          const name = [first, last].filter(Boolean).join(' ');
-          const id = (name || title || Math.random().toString(36)).toLowerCase().replace(/[^a-z0-9]+/g, '-');
-          return { id, name, title, department: dept || undefined, email: email || undefined, phone: phone || undefined } as OrgMember;
-        });
-
-        // Heuristic parent mapping based on Title/Dept
-        const textIncludes = (text: string | undefined, substr: string) => (text || '').toLowerCase().includes(substr.toLowerCase());
-        const findBy = (fn: (m: OrgMember) => boolean) => full.find(fn);
-        const ceo = findBy(m => textIncludes(m.title, 'ceo'));
-        const pmHead = findBy(m => textIncludes(m.title, 'dir.') && textIncludes(m.title, 'property'));
-        const irHead = findBy(m => textIncludes(m.title, 'senior vice president') && textIncludes(m.title, 'investor')) || findBy(m => textIncludes(m.title, 'director') && textIncludes(m.department, 'Investor Relations'));
-        const acqHeadMed = full.find(m => textIncludes(m.department, 'Acquisitions') && textIncludes(m.title, 'Director') && textIncludes(m.title, 'Medical'));
-        const acqHeadMulti = full.find(m => textIncludes(m.department, 'Acquisitions') && textIncludes(m.title, 'Director') && textIncludes(m.title, 'Multifamily'));
-
-        const withParents = full.map(m => {
-          let parentId: string | undefined;
-          if (ceo && m.id === ceo.id) parentId = undefined; else if (ceo) {
-            if (textIncludes(m.title, 'CEO')) parentId = undefined; else if (m.department) {
-              if (m.department.toLowerCase().includes('property mgmt')) {
-                if (pmHead && m.id !== pmHead.id) {
-                  parentId = textIncludes(m.title, 'dir.') ? ceo.id : pmHead.id;
-                } else if (pmHead && m.id === pmHead.id) {
-                  parentId = ceo.id;
-                }
-              } else if (m.department.toLowerCase().includes('investor relations')) {
-                if (irHead && m.id !== irHead.id) parentId = irHead.id; else if (irHead && m.id === irHead.id) parentId = ceo.id;
-              } else if (m.department.toLowerCase().includes('acquisitions')) {
-                const isDirector = textIncludes(m.title, 'director');
-                if (isDirector) parentId = ceo.id; else {
-                  if (textIncludes(m.title, 'multifamily') && acqHeadMulti) parentId = acqHeadMulti.id;
-                  else if (textIncludes(m.title, 'medical') && acqHeadMed) parentId = acqHeadMed.id;
-                  else parentId = (acqHeadMed || acqHeadMulti || ceo).id;
-                }
-              } else if (m.department.toLowerCase().includes('corporate')) {
-                parentId = ceo.id;
-              } else {
-                parentId = ceo.id;
-              }
-            } else {
-              parentId = ceo.id;
-            }
-          }
-          return { ...m, parentId } as OrgMember & { parentId?: string };
-        });
-
-        const { nodes: n, edges: e } = autoLayout(withParents);
+        const norm = (s: any) => String(s ?? '').trim();
+        const recs = rows.map((r) => {
+          const id = norm(r['id'] || r['ID']);
+          let parentId = norm(r['parent id'] || r['parentId'] || r['ParentId'] || r['Parent ID']);
+          if (parentId === '' || parentId === '0') parentId = undefined as any;
+          const name = [norm(r['First Name']), norm(r['Last Name'])].filter(Boolean).join(' ');
+          const title = norm(r['Title']);
+          const department = norm(r['Dept.']) || undefined;
+          const email = norm(r['Email']) || undefined;
+          const phone = norm(r['Mobile']) || norm(r['Direct Line']) || undefined;
+          return { id, parentId, name, title, department, email, phone } as OrgMember & { parentId?: string };
+        }).filter(r => r.id && r.name);
+        const { nodes: n, edges: e } = autoLayout(recs);
         setNodes(n);
         setEdges(e);
-      } catch (_) {
-        // Ignore on failure, seed remains
+        localStorage.setItem(STORAGE_KEYS.version, CURRENT_SEED_VERSION);
+      } catch (err) {
+        console.error('Failed to load new-org.csv', err);
       }
     }
-    loadCsv();
+    loadCsvExact();
   }, []);
 
   const onConnect: OnConnect = useCallback((connection: Connection) => {
@@ -291,10 +258,35 @@ const OrgChartPage: React.FC = () => {
     setNewTitle('');
   };
 
-  const resetSeed = () => {
-    setNodes(seed.nodes);
-    setEdges(seed.edges);
-    setSelectedNodeId(null);
+  const reloadCsv = async () => {
+    try {
+      localStorage.removeItem(STORAGE_KEYS.nodes);
+      localStorage.removeItem(STORAGE_KEYS.edges);
+      localStorage.setItem(STORAGE_KEYS.version, '');
+      // trigger effect by manual load
+      const res = await fetch('/new-org.csv');
+      if (!res.ok) return;
+      const text = await res.text();
+      const parsed = Papa.parse(text, { header: true, skipEmptyLines: true });
+      const rows = (parsed.data as any[]).filter(Boolean);
+      const norm = (s: any) => String(s ?? '').trim();
+      const recs = rows.map((r) => {
+        const id = norm(r['id'] || r['ID']);
+        let parentId = norm(r['parent id'] || r['parentId'] || r['ParentId'] || r['Parent ID']);
+        if (parentId === '' || parentId === '0') parentId = undefined as any;
+        const name = [norm(r['First Name']), norm(r['Last Name'])].filter(Boolean).join(' ');
+        const title = norm(r['Title']);
+        const department = norm(r['Dept.']) || undefined;
+        const email = norm(r['Email']) || undefined;
+        const phone = norm(r['Mobile']) || norm(r['Direct Line']) || undefined;
+        return { id, parentId, name, title, department, email, phone } as OrgMember & { parentId?: string };
+      }).filter(r => r.id && r.name);
+      const { nodes: n, edges: e } = autoLayout(recs);
+      setNodes(n);
+      setEdges(e);
+      localStorage.setItem(STORAGE_KEYS.version, CURRENT_SEED_VERSION);
+      setSelectedNodeId(null);
+    } catch {}
   };
 
   function computeLevels(records: Array<{ id: string; parentId?: string | null }>): Map<string, number> {
@@ -421,7 +413,7 @@ const OrgChartPage: React.FC = () => {
               <PlusIcon />
               Add Member
             </Button>
-            <Button variant="soft" onClick={resetSeed}>Reset to Seed</Button>
+            <Button variant="soft" onClick={reloadCsv}>Reload CSV</Button>
             <Button variant="soft" onClick={() => setShowImportDialog(true)}>Import</Button>
             <Button variant="soft" onClick={handleExport}>Copy JSON</Button>
           </Flex>
