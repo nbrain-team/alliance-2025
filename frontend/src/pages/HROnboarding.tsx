@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Container, Card, Box, Heading, Text, Button, Flex, Badge, Progress, Tabs, Table, IconButton, Dialog, TextField, Select, TextArea, Separator, Checkbox } from '@radix-ui/themes';
-import { CheckCircledIcon, CrossCircledIcon, ClockIcon, PersonIcon, FileTextIcon, CalendarIcon, EnvelopeClosedIcon, ChevronRightIcon, ReloadIcon, DownloadIcon, ExclamationTriangleIcon } from '@radix-ui/react-icons';
+import { Container, Card, Box, Heading, Text, Button, Flex, Badge, Progress, Tabs, Table, IconButton, Dialog, TextField, Select, Separator, Checkbox } from '@radix-ui/themes';
+import { CheckCircledIcon, CrossCircledIcon, ClockIcon, PersonIcon, FileTextIcon, ChevronRightIcon, DownloadIcon, ExclamationTriangleIcon } from '@radix-ui/react-icons';
+import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 
 // Mock data types
@@ -144,7 +145,8 @@ const mockCandidates: Candidate[] = [
 ];
 
 const HROnboarding: React.FC = () => {
-  const [candidates, setCandidates] = useState<Candidate[]>(mockCandidates);
+  const [candidates] = useState<Candidate[]>(mockCandidates);
+  const navigate = useNavigate();
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
   const [showNewCandidateDialog, setShowNewCandidateDialog] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
@@ -216,10 +218,15 @@ const HROnboarding: React.FC = () => {
             <Text size="2" color="gray">AI-powered employee onboarding from pre-hire to 90 days</Text>
           </Box>
         </Flex>
-        <Button size="3" onClick={() => setShowNewCandidateDialog(true)}>
-          <PersonIcon />
-          New Candidate
-        </Button>
+        <Flex gap="3">
+          <Button size="3" variant="soft" onClick={() => navigate('/hr-onboarding/org')}>
+            View Org
+          </Button>
+          <Button size="3" onClick={() => setShowNewCandidateDialog(true)}>
+            <PersonIcon />
+            New Candidate
+          </Button>
+        </Flex>
       </Flex>
 
       {/* Stats Overview */}
@@ -271,7 +278,7 @@ const HROnboarding: React.FC = () => {
               
               {/* Pipeline Stages */}
               <Flex gap="2" mb="4" style={{ overflowX: 'auto' }}>
-                {['Pre-Hire', 'Pre-Onboarding', 'Onboarding', 'Day 1', 'Hired', '90 Days Post-Hire'].map((stage, index) => (
+                {['Pre-Hire', 'Pre-Onboarding', 'Onboarding', 'Day 1', 'Hired', '90 Days Post-Hire'].map((stage) => (
                   <Card key={stage} style={{ minWidth: '180px', flex: 1 }}>
                     <Box p="3">
                       <Flex justify="between" align="center" mb="2">

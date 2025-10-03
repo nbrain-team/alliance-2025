@@ -16,6 +16,7 @@ import DealScorerPage from './pages/DealScorerPage';
 import CRMPage from './pages/CRMPage';
 import EmailCampaigns from './pages/EmailCampaigns';
 import HROnboarding from './pages/HROnboarding';
+import OrgChartPage from './pages/OrgChartPage';
 
 // Define the structure for a message
 interface Message {
@@ -84,6 +85,11 @@ function AppRoutes() {
         <Route path="/hr-onboarding" element={
           <ProtectedRoute>
             <HROnboarding />
+          </ProtectedRoute>
+        } />
+        <Route path="/hr-onboarding/org" element={
+          <ProtectedRoute>
+            <OrgChartPage />
           </ProtectedRoute>
         } />
                 <Route path="/score-my-deal" element={<DealScorerPage />} />
