@@ -27,7 +27,10 @@ type OrgMember = {
   title: string;
   department?: string;
   email?: string;
-  phone?: string;
+  directLine?: string;
+  extension?: string;
+  mobile?: string;
+  timezone?: string;
 };
 
 type OrgNodeData = {
@@ -202,8 +205,11 @@ const OrgChartPage: React.FC = () => {
           const title = norm(r['Title']);
           const department = norm(r['Dept.']) || undefined;
           const email = norm(r['Email']) || undefined;
-          const phone = norm(r['Mobile']) || norm(r['Direct Line']) || undefined;
-          return { id, parentId, name, title, department, email, phone } as OrgMember & { parentId?: string };
+          const directLine = norm(r['Direct Line']) || undefined;
+          const extension = norm(r['Extension']) || undefined;
+          const mobile = norm(r['Mobile']) || undefined;
+          const timezone = norm(r['Location / Time Zone']) || undefined;
+          return { id, parentId, name, title, department, email, directLine, extension, mobile, timezone } as OrgMember & { parentId?: string };
         }).filter(r => r.id && r.name);
         const { nodes: n, edges: e } = autoLayout(recs);
         setNodes(n);
@@ -333,7 +339,7 @@ const OrgChartPage: React.FC = () => {
       id: rec.id,
       type: 'orgNode',
       position: idToPosition.get(rec.id) || { x: 80, y: 100 },
-      data: { member: { id: rec.id, name: rec.name, title: rec.title, department: rec.department, email: rec.email, phone: rec.phone } }
+      data: { member: { id: rec.id, name: rec.name, title: rec.title, department: rec.department, email: rec.email, directLine: rec.directLine, extension: rec.extension, mobile: rec.mobile, timezone: rec.timezone } }
     }));
     const edges: Edge[] = [];
     for (const rec of records) {
@@ -354,7 +360,10 @@ const OrgChartPage: React.FC = () => {
           title: String(r.title || r.Title).trim(),
           department: (r.department || r.Department || '').trim() || undefined,
           email: (r.email || r.Email || '').trim() || undefined,
-          phone: (r.phone || r.Phone || '').trim() || undefined,
+          directLine: (r.directLine || r['Direct Line'] || '').trim() || undefined,
+          extension: (r.extension || r.Extension || '').trim() || undefined,
+          mobile: (r.mobile || r.Mobile || '').trim() || undefined,
+          timezone: (r.timezone || r['Time Zone'] || r['Location / Time Zone'] || '').trim() || undefined,
           parentId: (r.parentId || r.ParentId || r.parent || '').trim() || undefined
         })).filter(r => r.id && r.name);
         const { nodes: n, edges: e } = autoLayout(recs);
@@ -369,7 +378,10 @@ const OrgChartPage: React.FC = () => {
           title: String(r.title || '').trim(),
           department: (r.department || '').trim() || undefined,
           email: (r.email || '').trim() || undefined,
-          phone: (r.phone || '').trim() || undefined,
+          directLine: (r.directLine || '').trim() || undefined,
+          extension: (r.extension || '').trim() || undefined,
+          mobile: (r.mobile || '').trim() || undefined,
+          timezone: (r.timezone || '').trim() || undefined,
           parentId: (r.parentId || '').trim() || undefined
         })).filter(r => r.id && r.name);
         const { nodes: n, edges: e } = autoLayout(recs);
@@ -391,7 +403,10 @@ const OrgChartPage: React.FC = () => {
       title: n.data.member.title,
       department: n.data.member.department,
       email: n.data.member.email,
-      phone: n.data.member.phone
+      directLine: n.data.member.directLine,
+      extension: n.data.member.extension,
+      mobile: n.data.member.mobile,
+      timezone: n.data.member.timezone
     }));
     const links = edges.map(e => ({ parentId: e.source, id: e.target }));
     const json = JSON.stringify({ members: data.map(d => ({ ...d, parentId: links.find(l => l.id === d.id)?.parentId || null })) }, null, 2);
@@ -461,9 +476,37 @@ const OrgChartPage: React.FC = () => {
                 <Text size="2" color="gray">Email</Text>
                 <TextField.Root value={selectedNode.data.member.email || ''} onChange={(e) => updateSelectedNode({ email: e.target.value })} />
               </Box>
+              <Box mb="3">
+                <Text size="2" color="gray">Direct Line</Text>
+                <TextField.Root value={selectedNode.data.member.directLine || ''} onChange={(e) => updateSelectedNode({ directLine: e.target.value })} />
+              </Box>
+              <Box mb="3">
+                <Text size="2" color="gray">Extension</Text>
+                <TextField.Root value={selectedNode.data.member.extension || ''} onChange={(e) => updateSelectedNode({ extension: e.target.value })} />
+              </Box>
+              <Box mb="3">
+                <Text size="2" color="gray">Cell Phone</Text>
+                <TextField.Root value={selectedNode.data.member.mobile || ''} onChange={(e) => updateSelectedNode({ mobile: e.target.value })} />
+              </Box>
               <Box mb="4">
-                <Text size="2" color="gray">Phone</Text>
-                <TextField.Root value={selectedNode.data.member.phone || ''} onChange={(e) => updateSelectedNode({ phone: e.target.value })} />
+                <Text size="2" color="gray">Time Zone</Text>
+                <Select.Root value={selectedNode.data.member.timezone || ''} onValueChange={(v) => updateSelectedNode({ timezone: v })}>
+                  <Select.Trigger />
+                  <Select.Content>
+                    <Select.Item value="Pacific">Pacific</Select.Item>
+                    <Select.Item value="Mountain">Mountain</Select.Item>
+                    <Select.Item value="Central">Central</Select.Item>
+                    <Select.Item value="Eastern">Eastern</Select.Item>
+                    <Select.Item value="India">India</Select.Item>
+                    <Select.Item value="Mexico / Central">Mexico / Central</Select.Item>
+                    <Select.Item value="Chicago / Central">Chicago / Central</Select.Item>
+                    <Select.Item value="CA / Pacific">CA / Pacific</Select.Item>
+                    <Select.Item value="FL / EST">FL / EST</Select.Item>
+                    <Select.Item value="Nevada / CST">Nevada / CST</Select.Item>
+                    <Select.Item value="AZ / MST">AZ / MST</Select.Item>
+                    <Select.Item value="MI / Eastern">MI / Eastern</Select.Item>
+                  </Select.Content>
+                </Select.Root>
               </Box>
 
               <Flex gap="2" justify="end">
