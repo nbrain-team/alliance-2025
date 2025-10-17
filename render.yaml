@@ -47,7 +47,7 @@ services:
     region: oregon
     plan: starter
     rootDir: adtv-migration-package/apps/server
-    buildCommand: corepack enable && pnpm install && pnpm build
+    buildCommand: corepack enable && pnpm install --no-frozen-lockfile && pnpm build
     startCommand: pnpm start
     envVars:
       - key: DATABASE_URL
