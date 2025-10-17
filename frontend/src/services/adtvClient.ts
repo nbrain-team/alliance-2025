@@ -1,4 +1,4 @@
-const BASE_URL = (import.meta as any).env?.VITE_ADTV_API_URL || '';
+const BASE_URL = (import.meta as any).env?.VITE_ADTV_API_URL || 'https://adtv-events-server.onrender.com';
 
 type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
 
