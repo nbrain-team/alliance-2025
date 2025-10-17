@@ -60,6 +60,9 @@ export const Sidebar = ({ onNewChat }: { onNewChat: () => void }) => {
                 <button className="sidebar-icon" title="Alliance AI Automation" onClick={() => navigate('/adtv-campaigns')}>
                     <img src="/new-icons/8.png" alt="Alliance AI Automation" />
                 </button>
+                <button className="sidebar-icon" title="AI Automation Inbox" onClick={() => navigate('/adtv-inbox')}>
+                    <img src="/new-icons/9.png" alt="AI Automation Inbox" />
+                </button>
             </Flex>
         </Flex>
     );
