@@ -1,0 +1,196 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model ContentTemplate {
+  id         String   @id @default(cuid())
+  type       String   // 'email' | 'sms' | 'voicemail'
+  name       String
+  subject    String?
+  body       String?
+  text       String?
+  ttsScript  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Template {
+  id        String   @id @default(cuid())
+  name      String
+  status    String   @default("draft")
+  version   Int      @default(1)
+  nodes     Node[]
+  edges     Edge[]
+  campaigns Campaign[]
+  versions  TemplateVersion[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TemplateVersion {
+  id              String   @id @default(cuid())
+  baseTemplate    Template @relation(fields: [baseTemplateId], references: [id], onDelete: Cascade)
+  baseTemplateId  String
+  campaign        Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  campaignId      String?
+  versionName     String
+  description     String?
+  nodesJson       String   // JSON array of modified nodes
+  edgesJson       String   // JSON array of modified edges
+  createdBy       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([baseTemplateId])
+  @@index([campaignId])
+}
+
+model Node {
+  id        String   @id @default(cuid())
+  template  Template @relation(fields: [templateId], references: [id])
+  templateId String
+  key       String   // original graph id (e.g., N10)
+  type      String
+  name      String
+  configJson String?
+  posX      Float?
+  posY      Float?
+}
+
+model Edge {
+  id         String   @id @default(cuid())
+  template   Template @relation(fields: [templateId], references: [id])
+  templateId String
+  fromKey    String
+  toKey      String
+  conditionJson String?
+}
+
+model Campaign {
+  id        String   @id @default(cuid())
+  name      String
+  ownerName String
+  ownerEmail String
+  ownerPhone String?
+  city      String?
+  state     String?
+  videoLink String?
+  eventLink String?
+  eventType String
+  eventDate DateTime
+  launchDate DateTime?
+  hotelName String?
+  hotelAddress String?
+  calendlyLink String?
+  status    String   @default("draft")
+  totalContacts Int  @default(0)
+  enrichedContacts Int @default(0)
+  emailsGenerated Int @default(0)
+  templateId String?
+  template   Template? @relation(fields: [templateId], references: [id])
+  templateVersionId String?
+  senderUserId String?
+  senderUser   User?    @relation(fields: [senderUserId], references: [id])
+  contacts  Contact[]
+  nodes     CampaignNode[]
+  edges     CampaignEdge[]
+  templateVersions TemplateVersion[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Contact {
+  id        String    @id @default(cuid())
+  campaign  Campaign  @relation(fields: [campaignId], references: [id])
+  campaignId String
+  name      String
+  company   String?
+  email     String?
+  phone     String?
+  city      String?
+  state     String?
+  url       String?
+  status    String
+  stageKey  String?
+  rawJson   String?
+  conversations Conversation[]
+  createdAt DateTime  @default(now())
+}
+
+model Conversation {
+  id        String   @id @default(cuid())
+  contact   Contact  @relation(fields: [contactId], references: [id])
+  contactId String
+  channel   String   // sms/email
+  messages  Message[]
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  convo     Conversation @relation(fields: [conversationId], references: [id])
+  conversationId String
+  direction String   // in/out
+  text      String
+  subject   String?
+  provider  String?   // smtp | twilio | gmail | slybroadcast
+  providerMessageId String?
+  providerThreadId String?
+  rawJson   String?
+  createdAt DateTime @default(now())
+}
+
+
+model User {
+  id         String   @id @default(cuid())
+  name       String
+  email      String   @unique
+  role       String   @default("bdr") // bdr | admin
+  passwordHash String?
+  phone      String?
+  smsFromNumber String?
+  vmCallerId String?
+  smtpHost   String?
+  smtpPort   Int?
+  smtpUser   String?
+  smtpPass   String?
+  smtpSecure Boolean? @default(true)
+  // Google OAuth / Gmail
+  googleId           String?
+  googleEmail        String?
+  googleAccessToken  String?
+  googleRefreshToken String?
+  googleTokenExpiry  DateTime?
+  googleScope        String?
+  campaigns  Campaign[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+
+model CampaignNode {
+  id          String   @id @default(cuid())
+  campaign    Campaign @relation(fields: [campaignId], references: [id])
+  campaignId  String
+  key         String   // original graph id (e.g., N10)
+  type        String
+  name        String
+  configJson  String?
+  posX        Float?
+  posY        Float?
+}
+
+model CampaignEdge {
+  id          String   @id @default(cuid())
+  campaign    Campaign @relation(fields: [campaignId], references: [id])
+  campaignId  String
+  fromKey     String
+  toKey       String
+  conditionJson String?
+}
+
+

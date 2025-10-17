@@ -8,6 +8,8 @@ services:
     envVars:
       - key: VITE_API_BASE_URL
         value: https://adtv-backend.onrender.com
+      - key: VITE_ADTV_API_URL
+        value: https://adtv-events-server.onrender.com
     routes:
       - type: rewrite
         source: /*
@@ -37,4 +39,40 @@ services:
       - key: DATABASE_URL
         sync: false
       - key: PINECONE_ENVIRONMENT
+        sync: false
+
+  - type: web
+    name: adtv-events-server
+    env: node
+    region: oregon
+    plan: starter
+    rootDir: adtv-migration-package/apps/server
+    buildCommand: pnpm install && pnpm build
+    startCommand: pnpm start
+    envVars:
+      - key: DATABASE_URL
+        value: postgresql://alliance_2025_db_user:dob8oPy5OmzPuTkrDS6yjgrcbm1LBUAH@dpg-d1cq41jipnbc73c2vdag-a/alliance_2025_db
+      - key: JWT_SECRET
+        sync: false
+      - key: PUBLIC_BASE_URL
+        value: https://adtv-events-server.onrender.com
+      - key: PORT
+        value: 4000
+      - key: SMS_PROVIDER
+        value: twilio
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_FROM_NUMBER
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_SECURE
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
         sync: false

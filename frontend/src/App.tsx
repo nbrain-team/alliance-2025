@@ -17,6 +17,7 @@ import CRMPage from './pages/CRMPage';
 import EmailCampaigns from './pages/EmailCampaigns';
 import HROnboarding from './pages/HROnboarding';
 import OrgChartPage from './pages/OrgChartPage';
+import ADTVCampaigns from './pages/ADTVCampaigns';
 
 // Define the structure for a message
 interface Message {
@@ -80,6 +81,11 @@ function AppRoutes() {
                 <Route path="/email-campaigns" element={
           <ProtectedRoute>
             <EmailCampaigns />
+          </ProtectedRoute>
+        } />
+        <Route path="/adtv-campaigns" element={
+          <ProtectedRoute>
+            <ADTVCampaigns />
           </ProtectedRoute>
         } />
         <Route path="/hr-onboarding" element={

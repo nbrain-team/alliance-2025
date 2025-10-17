@@ -1,0 +1,144 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                    COPY THIS PROMPT TO YOUR OTHER CURSOR PROJECT             ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+I need help migrating and embedding the ADTV Event Automation platform into this project.
+
+CONTEXT:
+I have a complete, production-ready event marketing automation platform (ADTV) that I want to integrate into this existing project. The ADTV platform includes campaign management, multi-channel messaging (SMS/Email/Voicemail), contact tracking, unified inbox, and analytics.
+
+WHAT I NEED:
+Help me integrate ADTV into this project so I can:
+1. Use its campaign management features
+2. Send SMS/Email/Voicemail through its APIs
+3. Track contacts and conversations
+4. View analytics and reports
+
+INTEGRATION APPROACH:
+[Choose one or tell me which is best:]
+- Option A: Deploy ADTV separately and integrate via REST API (standalone)
+- Option B: Merge ADTV into my existing monorepo (deep integration)
+- Option C: Extract only specific features I need (module extraction)
+
+DOCUMENTATION LOCATION:
+All ADTV documentation and source code is in: adtv-migration-package/
+
+KEY FILES TO READ FIRST:
+1. adtv-migration-package/CURSOR_INTEGRATION_GUIDE.md - Start here!
+2. adtv-migration-package/INTEGRATION_EXAMPLES.md - Code examples
+3. adtv-migration-package/SETUP_INSTRUCTIONS.md - Complete reference
+
+INSTRUCTIONS FOR YOU (CURSOR):
+1. Read CURSOR_INTEGRATION_GUIDE.md first - it contains everything you need
+2. Ask me which integration approach I prefer (A, B, or C above)
+3. Help me understand what changes need to be made to THIS project
+4. Guide me step-by-step through the integration
+5. Reference the documentation files as needed
+6. Show me code examples from INTEGRATION_EXAMPLES.md
+
+MY CURRENT PROJECT:
+[REPLACE WITH YOUR PROJECT DETAILS:]
+- Tech Stack: React, Node.js, Express, PostgreSQL, etc.
+- Architecture: Monorepo / Standalone apps / etc.
+- Current Features: What your app currently does
+- Deployment: Render / AWS / Vercel / etc.
+
+WHAT I WANT TO ACHIEVE:
+[REPLACE WITH YOUR SPECIFIC GOALS:]
+- Example: "Add event campaign creation to my admin dashboard"
+- Example: "Use ADTV's SMS sending for my notification system"
+- Example: "Embed ADTV's campaign builder in my platform"
+- Example: "Share authentication between my platform and ADTV"
+
+FIRST QUESTION:
+Based on my project description above, which integration approach (A, B, or C) would you recommend and why?
+
+Then, please read the CURSOR_INTEGRATION_GUIDE.md file and help me get started.
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                              INSTRUCTIONS                                     ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+BEFORE PASTING:
+1. Replace [REPLACE WITH YOUR PROJECT DETAILS] with your actual project info
+2. Replace [REPLACE WITH YOUR SPECIFIC GOALS] with what you want to accomplish
+3. Choose an integration approach or ask Cursor to recommend
+
+AFTER PASTING:
+1. Wait for Cursor to read CURSOR_INTEGRATION_GUIDE.md
+2. Answer Cursor's questions
+3. Follow the step-by-step guidance
+
+LOCATION OF MIGRATION PACKAGE:
+Make sure adtv-migration-package/ folder is in your project root!
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                           QUICK TEMPLATES BY GOAL                             ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+IF YOU WANT: "Deploy separately and call APIs"
+USE: Option A (Standalone API integration)
+FASTEST: 1-2 hours to integrate
+
+IF YOU WANT: "Merge into my monorepo"
+USE: Option B (Monorepo integration)
+DEEPEST: 4-8 hours for full integration
+
+IF YOU WANT: "Just the SMS/Email features"
+USE: Option C (Module extraction)
+LIGHTEST: 1-2 hours to extract modules
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                              EXAMPLE FILLED OUT                               ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+MY CURRENT PROJECT:
+- Tech Stack: React 18, Node.js, Express, PostgreSQL, Prisma, Tailwind CSS
+- Architecture: Monorepo with pnpm workspaces (packages/ and apps/ folders)
+- Current Features: User management, product catalog, order processing
+- Deployment: Render (backend web service + frontend static site)
+
+WHAT I WANT TO ACHIEVE:
+- Deploy ADTV as separate Render services
+- Call ADTV APIs from my existing backend to create campaigns
+- Add "Campaigns" tab in my admin dashboard to display ADTV campaigns
+- Use ADTV's SMS API to send order notification texts
+- Share JWT authentication so users login once for both platforms
+
+INTEGRATION APPROACH:
+Option A - Deploy separately and integrate via REST API (seems easiest for my setup)
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                                 NEED HELP?                                    ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+See CURSOR_PROMPT.md for:
+- Multiple example prompts
+- Detailed customization guide
+- Quick start templates
+- Sample conversation flows
+
+See CURSOR_INTEGRATION_GUIDE.md for:
+- Complete system overview for AI
+- All integration approaches explained
+- API reference
+- Architecture details
+
+See INTEGRATION_EXAMPLES.md for:
+- Copy-paste code examples
+- React hooks
+- API client patterns
+- Database integration examples
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                              READY TO GO!                                     ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+1. Customize the prompt above
+2. Copy adtv-migration-package/ to your target project
+3. Open target project in Cursor
+4. Paste your customized prompt
+5. Let Cursor guide you step-by-step!
+
+✨ Cursor will handle everything from here! ✨
+

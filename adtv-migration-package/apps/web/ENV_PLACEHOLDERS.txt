@@ -1,0 +1,2 @@
+# ADTV Web Environment (placeholders)
+VITE_API_URL=https://adtv-events-server.onrender.com

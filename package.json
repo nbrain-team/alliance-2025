@@ -13,5 +13,9 @@
   "devDependencies": {
     "@types/papaparse": "^5.3.16",
     "@types/react-router-dom": "^5.3.3"
+  },
+  "scripts": {
+    "build": "cd adtv-migration-package/apps/server && pnpm install && pnpm build",
+    "start": "cd adtv-migration-package/apps/server && pnpm start"
   }
 }

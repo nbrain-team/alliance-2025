@@ -1,0 +1,34 @@
+# ADTV Server Environment (placeholders) — replace before deployment
+
+# Core
+DATABASE_URL=postgresql://user:password@host:5432/adtv_events
+JWT_SECRET=CHANGE_ME_32_CHAR_MIN
+PORT=4000
+PUBLIC_BASE_URL=https://adtv-events-server.onrender.com
+
+# SMS (Twilio)
+SMS_PROVIDER=twilio
+TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TWILIO_AUTH_TOKEN=your_twilio_auth_token
+TWILIO_FROM_NUMBER=+1XXXXXXXXXX
+# TWILIO_MESSAGING_SERVICE_SID=MGxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# Email (SMTP)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=placeholder@example.com
+SMTP_PASS=app_password_here
+
+# Voicemail (optional)
+VOICEMAIL_PROVIDER=slybroadcast
+SLYBROADCAST_API_BASE_URL=https://www.mobile-sphere.com/gateway/vmb.php
+SLYBROADCAST_USERNAME=placeholder@example.com
+SLYBROADCAST_PASSWORD=your_password_here
+SLYBROADCAST_CALLER_ID=+1XXXXXXXXXX
+SLYBROADCAST_DEFAULT_AUDIO_URL=https://example.com/fallback.mp3
+
+# Text-to-Speech (optional)
+ELEVENLABS_API_KEY=your_elevenlabs_api_key
+ELEVENLABS_VOICE_ID=WzEaNiZ7hcVOsge5QDNT
+ELEVENLABS_MODEL_ID=eleven_flash_v2_5
