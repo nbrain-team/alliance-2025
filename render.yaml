@@ -1,13 +1,13 @@
 services:
   - type: web
-    name: adtv-frontend
+    name: alliance-2025-frontend
     env: static
     rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: dist
     envVars:
       - key: VITE_API_BASE_URL
-        value: https://adtv-backend.onrender.com
+        value: https://adtv-backend-y62t.onrender.com
       - key: VITE_ADTV_API_URL
         value: https://adtv-events-server.onrender.com
     routes:
@@ -16,7 +16,7 @@ services:
         destination: /index.html
 
   - type: web
-    name: adtv-backend
+    name: alliance-2025-backend
     env: python
     region: oregon
     plan: standard
